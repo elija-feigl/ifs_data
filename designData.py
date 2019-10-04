@@ -11,19 +11,14 @@ class DesignData(object):
         self.all_strands: list = self.dna_structure.strands
         self.pairedbases: list = self.init_pairedbases()
         self.data: dict = {}
-        self.all_bases: list = []
-        for strand in self.all_strands:
-            for base in strand.tour:
-                self.all_bases.append(base)
-
-    def get_base_hps(self, h, p, is_scaffold):
-        base=None 
-        # TODO: not yet implemented
-        return base
-    
+        self.all_bases: list = self.dna_structure.base_connectivity
+        self.hps_base: dict = self.init_hps()
+        self.position_of_base: dict = self.get_hps_from_base()
+        self.all_co: list = self.get_all_co()
+         
     def compute_data(self) -> dict:
         data = {}
-        data["total_co"] = self.get_total_co()
+        data["total_co"] = self.get_total_n_co
         data["half_co"] = self.get_half_co()
         data["end_loop"] = self.get_end_loop()
         data["full_co"] = self.get_full_co()
@@ -57,6 +52,27 @@ class DesignData(object):
 
         return pairedbases
     
+    def init_hps(self) -> dict:
+        hps_base = {}
+        for base in self.all_bases :
+            position = (base.h, base.p, base.is_scaf)
+            hps_base[position] = base
+        return hps_base
+            
+    def get_base_from_hps(self, h, p, is_scaffold):
+        try:
+            base = self.hps_base[(h, p, is_scaffold)]
+        except KeyError:
+            return None
+        if base.num_deletions != 0:
+            return 'skip'
+        else:
+            return base
+        
+    def get_hps_from_base(self, base):
+        return (base.h, base.p, base.is_scaf)
+
+        
     def get_all_bases(self) -> list:
         all_bases = []
         for strand in self.all_strands:
@@ -108,17 +124,40 @@ class DesignData(object):
     def get_staple_scaffold_co(self):
         N_scaf_co = 0
         N_staple_co = 0
+        scaf_co = []
+        staple_co = []
 
         for strand in self.all_strands:
                 for base in strand.tour:
                     if self.dna_structure._check_base_crossover(base):
                         if base.is_scaf:
-                            N_scaf_co += 1
+                            if base.num_deletions != 0:
+                                scaf_co.append(base.up)
+                                N_scaf_co += 1
+                            else:
+                                scaf_co.append(base)
+                                N_scaf_co += 1
                         else:
-                            N_staple_co += 1
-        return N_scaf_co/2, N_staple_co/2
+                            if base.num_deletions != 0:
+                                staple_co.append(base.up)
+                                N_staple_co += 1
+                            else:
+                                staple_co.append(base)
+                                N_staple_co += 1
+                            
+        
+        return scaf_co, staple_co, N_scaf_co/2, N_staple_co/2
 
-    def get_total_co(self) -> int:
+    def get_all_co(self) -> list:
+        all_co = []
+        for strand in self.all_strands:
+                for base in strand.tour:
+                    if self.dna_structure._check_base_crossover(base):
+                        all_co.append(base)
+        #ipdb.set_trace()
+        return all_co
+    
+    def get_total_n_co(self) -> int:
         number = 0
         for strand in self.all_strands:
                 for base in strand.tour:
@@ -127,32 +166,24 @@ class DesignData(object):
         number = number/2
         return number
 
-    def get_end_loop(self) -> int:
-        number = 0
-        for strand in self.all_strands:
-            for base in strand.tour:
-                if base.is_scaf:
-                    if base.h + 1 not in self.all_bases or base.h - 1 not in self.all_bases:
-                        number += 1
-        return number
-
-    def get_full_co(self) -> int:
-        number = 0
-        for base in self.pairedbases:
-            if self.dna_structure._check_base_crossover(base) and self.dna_structure._check_base_crossover(base.across):
-                number += 1
-        number = number/2
-        return number
-
-    def get_half_co(self) -> int:
-        number = 0
-        for base in self.pairedbases:
-            if not base.is_scaf:
-                if self.dna_structure._check_base_crossover(base) and not self.dna_structure._check_base_crossover(base.across):
-                    number += 1
-
-        number = number/2
-        return number
+    def get_end_loops(self) -> int:
+        n_end = 0
+        n_half = 0
+        n_full = 0
+        for co in self.all_co:
+            base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaff)
+            base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaff)
+            is_end = base_plus or base_minus is None
+            is_full = base_plus or base_minus in self.all_co
+            is_half = not is_end and not is_full
+            if is_end:
+                n_end += 1
+            if is_full:
+                n_full += 1
+            if is_half:
+                n_half += 1
+                
+        return n_half, n_full, n_end
 
 def tester(all_strands, dna_structure) -> None:
     for strand in all_strands:
@@ -181,6 +212,7 @@ def main():
     print("Thank you Sir")
     designData = DesignData(name=name)
     data = designData.compute_data()
+    ipdb.set_trace()
     export_data(data=data, name=name)
     return
 
