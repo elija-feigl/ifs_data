@@ -15,13 +15,15 @@ class DesignData(object):
         self.hps_base: dict = self.init_hps()
         self.position_of_base: dict = self.get_hps_from_base()
         self.all_co: list = self.get_all_co()
+        self.scaf_co: list = self.get_staple_scaffold_co()
+        self.staple_co: list = self.get_staple_scaffold_co()
          
     def compute_data(self) -> dict:
         data = {}
         data["total_co"] = self.get_total_n_co
-        data["half_co"] = self.get_half_co()
-        data["end_loop"] = self.get_end_loop()
-        data["full_co"] = self.get_full_co()
+        data["half_scaf_co"] = self.get_half_co()
+        data["scaf_end_loop"] = self.get_end_loop()
+        data["full_scaf_co"] = self.get_full_co()
         data["staples"] = self.get_number_of_staple()
         scaf_co, staple_co = self.get_staple_scaffold_co()
         data["scaf_co"] = scaf_co
@@ -126,7 +128,7 @@ class DesignData(object):
         N_staple_co = 0
         scaf_co = []
         staple_co = []
-
+        
         for strand in self.all_strands:
                 for base in strand.tour:
                     if self.dna_structure._check_base_crossover(base):
@@ -166,25 +168,45 @@ class DesignData(object):
         number = number/2
         return number
 
-    def get_end_loops(self) -> int:
-        n_end = 0
-        n_half = 0
-        n_full = 0
-        for co in self.all_co:
+    def get_scaf_co_types(self) -> int:
+        n_scaf_end = 0
+        n_scaf_half = 0
+        n_scaf_full = 0
+        for co in self.scaf_co:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaff)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaff)
             is_end = base_plus or base_minus is None
             is_full = base_plus or base_minus in self.all_co
             is_half = not is_end and not is_full
             if is_end:
-                n_end += 1
+                n_scaf_end += 1
             if is_full:
-                n_full += 1
+                n_scaf_full += 1
             if is_half:
-                n_half += 1
-                
-        return n_half, n_full, n_end
-
+                n_scaf_half += 1
+        
+        return n_scaf_half, n_scaf_full, n_scaf_end
+    
+    def get_staple_co_types(self) -> int:
+        n_staple_end = 0
+        n_staple_half = 0
+        n_staple_full = 0
+        for co in self.scaf_co:
+            base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaff)
+            base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaff)
+            is_end = base_plus or base_minus is None
+            is_full = base_plus or base_minus in self.all_co
+            is_half = not is_end and not is_full
+            if is_end:
+                n_staple_end += 1
+            if is_full:
+                n_staple_full += 1
+            if is_half:
+                n_staple_half += 1
+        
+        return n_staple_half, n_staple_full, n_staple_end
+        
+        
 def tester(all_strands, dna_structure) -> None:
     for strand in all_strands:
         if not strand.is_scaffold:
