@@ -142,13 +142,7 @@ class DesignData(object):
         return all_co
     
     def get_total_n_co(self) -> int:
-        number = 0
-        for strand in self.all_strands:
-                for base in strand.tour:
-                    if self.dna_structure._check_base_crossover(base):
-                        number += 1
-        number = number/2
-        return number
+        return len(self.all_co)/2.
     
     def get_co_type(self) -> int:
         n_end = 0
@@ -157,14 +151,14 @@ class DesignData(object):
         for co in self.all_co:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
-            is_end = base_plus or base_minus is None
-            is_full = base_plus or base_minus in self.all_co
+            is_end = base_plus is None or base_minus is None
+            is_full = base_plus in self.all_co or base_minus in self.all_co
             is_half = not is_end and not is_full
             if is_end:
                 n_end += 1
-            if is_full:
+            elif is_full:
                 n_full += 1
-            if is_half:
+            elif is_half:
                 n_half += 1
         #ipdb.set_trace()
         return n_half/2., n_full/2., n_end/2. 
@@ -172,10 +166,8 @@ class DesignData(object):
     def get_staple_scaffold_co_bases(self):
         scaf_co_bases = []
         staple_co_bases = []
-
-        for strand in self.all_strands:
-                for base in strand.tour:
-                    if self.dna_structure._check_base_crossover(base):
+        
+        for base in self.all_co
                         #considering the skips in crossovers
                         if base.is_scaf:
                             if base.num_deletions == -1:
@@ -197,17 +189,17 @@ class DesignData(object):
         n_scaf_end = 0
         n_scaf_half = 0
         n_scaf_full = 0
-        for co in self.staple_co_bases:
+        for co in self.scaf_co_bases:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
-            is_end = base_plus or base_minus is None
-            is_full = base_plus or base_minus in self.scaf_co_bases
+            is_end = base_plus is None or base_minus is None
+            is_full = base_plus in self.scaf_co_bases or base_minus in self.scaf_co_bases
             is_half = not is_end and not is_full
             if is_end:
                 n_scaf_end += 1
-            if is_full:
+            elif is_full:
                 n_scaf_full += 1
-            if is_half:
+            elif is_half:
                 n_scaf_half += 1
         
         return n_scaf_half/2., n_scaf_full/2., n_scaf_end/2.
@@ -216,19 +208,19 @@ class DesignData(object):
         n_staple_end = 0
         n_staple_half = 0
         n_staple_full = 0
-        for co in self.scaf_co_bases:
+        for co in self.staple_co_bases:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
-            is_end = base_plus or base_minus is None
-            is_full = base_plus or base_minus in self.staple_co_bases
+            is_end = base_plus is None or base_minus is None
+            is_full = base_plus in self.staple_co_bases or base_minus in self.staple_co_bases
             is_half = not is_end and not is_full
             if is_end:
                 n_staple_end += 1
-            if is_full:
+            elif is_full:
                 n_staple_full += 1
-            if is_half:
+            elif is_half:
                 n_staple_half += 1
-        ipdb.set_trace()
+        #ipdb.set_trace()
         return n_staple_half/2., n_staple_full/2., n_staple_end/2.
   
 def tester(all_strands, dna_structure) -> None:
