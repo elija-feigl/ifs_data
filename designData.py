@@ -137,7 +137,10 @@ class DesignData(object):
         for strand in self.all_strands:
                 for base in strand.tour:
                     if self.dna_structure._check_base_crossover(base):
-                        all_co.append(base)
+                        if base.num_deletions == -1:
+                            all_co.append(base.down)
+                        else:
+                            all_co.append(base)
         #ipdb.set_trace()
         return all_co
     
@@ -151,7 +154,7 @@ class DesignData(object):
         for co in self.all_co:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
-            is_end = base_plus is None or base_minus is None
+            is_end = base_plus not in self.all_bases or base_minus not in self.all_bases
             is_full = base_plus in self.all_co or base_minus in self.all_co
             is_half = not is_end and not is_full
             if is_end:
@@ -167,18 +170,12 @@ class DesignData(object):
         scaf_co_bases = []
         staple_co_bases = []
         
-        for base in self.all_co
-                        #considering the skips in crossovers
-                        if base.is_scaf:
-                            if base.num_deletions == -1:
-                                scaf_co_bases.append(base.down)
-                            else:
-                                scaf_co_bases.append(base)
-                        else:
-                            if base.num_deletions == -1:
-                                staple_co_bases.append(base.down)
-                            else:
-                                staple_co_bases.append(base)
+        for base in self.all_co:
+        #considering the skips in crossovers
+            if base.is_scaf:
+                scaf_co_bases.append(base)
+            else:
+                staple_co_bases.append(base)
                             
         return scaf_co_bases, staple_co_bases
     
