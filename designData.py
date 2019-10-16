@@ -11,7 +11,7 @@ class DesignData(object):
         self.all_strands: list = self.dna_structure.strands
         self.pairedbases: list = self.init_pairedbases()
         self.data: dict = {}
-        self.all_bases: list = self.dna_structure.base_connectivity
+        self.all_bases: list = self.get_all_bases()
         self.hps_base: dict = self.init_hps()
         #self.position_of_base: dict = self.get_hps_from_base()
         self.all_co: list = self.get_all_co()
@@ -87,8 +87,9 @@ class DesignData(object):
     def get_all_bases(self) -> list:
         all_bases = []
         for strand in self.all_strands:
-            for base in strand.tour:
-              all_bases.append(base)
+            for base in strand.tour: 
+                if base.num_deletions == 0:
+                    all_bases.append(base)
         return all_bases
         
     def get_staple_length_parameter(self):
@@ -154,7 +155,7 @@ class DesignData(object):
         for co in self.all_co:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
-            is_end = base_plus not in self.all_bases or base_minus not in self.all_bases
+            is_end = base_plus is None or base_minus is None
             is_full = base_plus in self.all_co or base_minus in self.all_co
             is_half = not is_end and not is_full
             if is_end:
@@ -164,7 +165,7 @@ class DesignData(object):
             elif is_half:
                 n_half += 1
         #ipdb.set_trace()
-        return n_half/2., n_full/2., n_end/2. 
+        return n_half/2., n_full/4., n_end/2. 
     
     def get_staple_scaffold_co_bases(self):
         scaf_co_bases = []
@@ -198,8 +199,8 @@ class DesignData(object):
                 n_scaf_full += 1
             elif is_half:
                 n_scaf_half += 1
-        
-        return n_scaf_half/2., n_scaf_full/2., n_scaf_end/2.
+
+        return n_scaf_half/2., n_scaf_full/4., n_scaf_end/2.
     
     def get_staple_co_types(self) -> int:
         n_staple_end = 0
@@ -218,20 +219,8 @@ class DesignData(object):
             elif is_half:
                 n_staple_half += 1
         #ipdb.set_trace()
-        return n_staple_half/2., n_staple_full/2., n_staple_end/2.
+        return n_staple_half/2., n_staple_full/4., n_staple_end/2.
   
-def tester(all_strands, dna_structure) -> None:
-    for strand in all_strands:
-        if not strand.is_scaffold:
-            for base in strand.tour:
-                if base.h == 0 and base.p == 71:
-                    sin_base = base
-                    if not dna_structure._check_base_crossover(sin_base.across):
-                        print('bingo')
-                    else:
-                        print('no')
-    return
-
 def export_data(data: dict, name: str) -> None:
     header = ", ".join(data.keys())
     data_str = ", ".join([str(i) for i in data.values()])
