@@ -14,6 +14,7 @@ class DesignData(object):
         self.all_bases: list = self.get_all_bases()
         self.hps_base: dict = self.init_hps()
         #self.position_of_base: dict = self.get_hps_from_base()
+        self.all_co_skips: list = self.get_all_co_skips()
         self.all_co: list = self.get_all_co()
         self.scaf_co_bases, self.staple_co_bases = self.get_staple_scaffold_co_bases()
  
@@ -133,18 +134,30 @@ class DesignData(object):
             helix_dic.update(dic)
         return helix_dic
 
-    def get_all_co(self) -> list:
-        all_co = []
+    def get_all_co_skips(self) -> list:
+        all_co_skips = []
         for strand in self.all_strands:
                 for base in strand.tour:
                     if self.dna_structure._check_base_crossover(base):
                         if base.num_deletions == -1:
-                            all_co.append(base.down)
+                            if base.up.h == base.h:
+                                all_co_skips.append(base.down)
+                            elif base.up.h != base.h:
+                                all_co_skips.append(base.up)
                         else:
+                            all_co_skips.append(base)
+        ipdb.set_trace()
+        return all_co_skips
+    
+    def get_all_co(self):
+        all_co = []
+        for strand in self.all_strands:
+                for base in strand.tour:
+                    if self.dna_structure._check_base_crossover(base):
                             all_co.append(base)
         #ipdb.set_trace()
         return all_co
-    
+            
     def get_total_n_co(self) -> int:
         return len(self.all_co)/2.
     
@@ -152,6 +165,7 @@ class DesignData(object):
         n_end = 0
         n_half = 0
         n_full = 0
+
         for co in self.all_co:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
@@ -164,8 +178,8 @@ class DesignData(object):
                 n_full += 1
             elif is_half:
                 n_half += 1
-        #ipdb.set_trace()
-        return n_half/2., n_full/4., n_end/2. 
+    
+        return n_half/2., n_full/4., n_end/2.
     
     def get_staple_scaffold_co_bases(self):
         scaf_co_bases = []
@@ -201,7 +215,7 @@ class DesignData(object):
                 n_scaf_half += 1
 
         return n_scaf_half/2., n_scaf_full/4., n_scaf_end/2.
-    
+            
     def get_staple_co_types(self) -> int:
         n_staple_end = 0
         n_staple_half = 0
