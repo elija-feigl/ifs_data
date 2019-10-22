@@ -19,6 +19,7 @@ class DesignData(object):
         self.scaf_co_bases, self.staple_co_bases = self.get_staple_scaffold_co_bases()
         self.helices_n: list = self.get_helix_per_staple()
         self.helix_dic: dict = self.init_helix_dict()
+        self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
          
     def compute_data(self) -> dict:
         data = {}
@@ -141,6 +142,22 @@ class DesignData(object):
             helix_dic.update(dic)
         #ipdb.set_trace()
         return helix_dic
+    
+    def get_first_last_bases_of_strands(self) -> list:
+        first_bases = []
+        last_bases = []
+        for strand in self.all_strands:
+            if not strand.is_scaffold:
+                first_bases.append(strand.tour[0])
+                last_bases.append(strand.tour[-1])
+        ipdb.set_trace()
+        return first_bases, last_bases
+    
+    def get_nicks(self) ->int:
+        
+        
+        
+        return
 
     def get_all_co_skips(self) -> list:
         all_co_skips = []
