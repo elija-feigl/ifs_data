@@ -17,14 +17,16 @@ class DesignData(object):
         self.all_co_skips: list = self.get_all_co_skips()
         self.all_co: list = self.get_all_co()
         self.scaf_co_bases, self.staple_co_bases = self.get_staple_scaffold_co_bases()
- 
+        self.helices_n: list = self.get_helix_per_staple()
+        self.helix_dic: dict = self.init_helix_dict()
          
     def compute_data(self) -> dict:
         data = {}
-        data["staples"] = self.get_number_of_staple()
+        data["n_staples"] = self.get_number_of_staple()
         staple_length_avg, staple_length_std = self.get_staple_length_parameter()
         data["staple_length_avg"] = staple_length_avg
         data["staple_length_std"] = staple_length_std
+        data["avg_helices_staples_pass"] = self.avg_helices_staples_pass()
         data["num_skips"] = self.get_number_skips()
         data["total_co"] = self.get_total_n_co()
         n_half, n_full, n_end = self.get_co_type()
@@ -114,24 +116,30 @@ class DesignData(object):
             if not strand.is_scaffold:
                 num_staples.append(strand)
         return len(num_staples)
-
+    
     def get_helix_per_staple(self) -> list:
-        helices = set()
-        helix_list = []
+        helices_n = []
         for strand in self.all_strands:
+            helices = set()
             if not strand.is_scaffold:
                 for base in strand.tour:
-                    if base.h not in helices:
-                        helices.add(base.h)
-                helix_list.append(len(helices))
-        return helix_list
-
+                    if self.dna_structure._check_base_crossover(base):
+                        if base.h not in helices:
+                            helices.add(base.h)
+                            helices_n.append(len(helices))
+        #ipdb.set_trace()
+        return helices_n
+            
+    def avg_helices_staples_pass(self) -> int:
+        return np.average(self.helices_n)
+    
     def init_helix_dict(self) -> dict:
         helix_dic = {}
         helix_list = self.get_helix_per_staple()
         for strand, helices in zip(self.all_strands, helix_list):
             dic = {str(strand): helices}
             helix_dic.update(dic)
+        #ipdb.set_trace()
         return helix_dic
 
     def get_all_co_skips(self) -> list:
@@ -140,13 +148,13 @@ class DesignData(object):
                 for base in strand.tour:
                     if self.dna_structure._check_base_crossover(base):
                         if base.num_deletions == -1:
-                            if base.up.h == base.h:
+                            if base.up.h != base.h:
                                 all_co_skips.append(base.down)
-                            elif base.up.h != base.h:
+                            elif base.up.h == base.h:
                                 all_co_skips.append(base.up)
                         else:
                             all_co_skips.append(base)
-        ipdb.set_trace()
+        #ipdb.set_trace()
         return all_co_skips
     
     def get_all_co(self):
@@ -166,11 +174,11 @@ class DesignData(object):
         n_half = 0
         n_full = 0
 
-        for co in self.all_co:
+        for co in self.all_co_skips:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
             is_end = base_plus is None or base_minus is None
-            is_full = base_plus in self.all_co or base_minus in self.all_co
+            is_full = base_plus in self.all_co_skips or base_minus in self.all_co_skips
             is_half = not is_end and not is_full
             if is_end:
                 n_end += 1
@@ -178,14 +186,14 @@ class DesignData(object):
                 n_full += 1
             elif is_half:
                 n_half += 1
-    
+            #ipdb.set_trace()
         return n_half/2., n_full/4., n_end/2.
-    
+ 
     def get_staple_scaffold_co_bases(self):
         scaf_co_bases = []
         staple_co_bases = []
         
-        for base in self.all_co:
+        for base in self.all_co_skips:
         #considering the skips in crossovers
             if base.is_scaf:
                 scaf_co_bases.append(base)
