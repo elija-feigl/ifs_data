@@ -33,6 +33,7 @@ class DesignData(object):
         data["num_nicks"] = self.get_n_nicks()
         data["total_co"] = self.get_total_n_co()
         n_half, n_full, n_end = self.get_co_type()
+        data["avg_n_staples_co"] = self.avg_staples_crossovers()
         data["half_co"] = n_half
         data["full_co"] = n_full
         data["endloops"] = n_end
@@ -129,7 +130,7 @@ class DesignData(object):
                     if self.dna_structure._check_base_crossover(base):
                         if base.h not in helices:
                             helices.add(base.h)
-                            helices_n.append(len(helices))
+                helices_n.append(len(helices))
         #ipdb.set_trace()
         return helices_n
             
@@ -197,6 +198,18 @@ class DesignData(object):
     def get_total_n_co(self) -> int:
         return len(self.all_co)/2.
     
+    def avg_staples_crossovers(self) -> int:
+        co_staple = []
+        n_co_staples = []
+        for strand in self.all_strands:
+            if not strand.is_scaffold:
+                for base in strand.tour:
+                    if self.dna_structure._check_base_crossover(base):
+                        co_staple.append(base)
+                n_co_staples.append(len(co_staple)/2.)
+                co_staple = []
+        return np.average(n_co_staples)       
+        
     def get_co_type(self) -> int:
         n_end = 0
         n_half = 0
