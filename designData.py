@@ -20,6 +20,7 @@ class DesignData(object):
         self.helices_n: list = self.get_helix_per_staple()
         self.helix_dic: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
+        self.nicks: list = self.get_nicks()
          
     def compute_data(self) -> dict:
         data = {}
@@ -28,7 +29,8 @@ class DesignData(object):
         data["staple_length_avg"] = staple_length_avg
         data["staple_length_std"] = staple_length_std
         data["avg_helices_staples_pass"] = self.avg_helices_staples_pass()
-        data["num_skips"] = self.get_number_skips()
+        data["num_skips"] = self.get_n_skips()
+        data["num_nicks"] = self.get_n_nicks()
         data["total_co"] = self.get_total_n_co()
         n_half, n_full, n_end = self.get_co_type()
         data["half_co"] = n_half
@@ -104,7 +106,7 @@ class DesignData(object):
                 len_strands.append(len(tour_clean))
         return np.average(len_strands), np.std(len_strands)
 
-    def get_number_skips(self) -> int:
+    def get_n_skips(self) -> int:
         num_skips = 0
         for strand in self.all_strands:
             skips = [base for base in strand.tour if base.num_deletions == -1]
@@ -150,15 +152,24 @@ class DesignData(object):
             if not strand.is_scaffold:
                 first_bases.append(strand.tour[0])
                 last_bases.append(strand.tour[-1])
-        ipdb.set_trace()
+        #ipdb.set_trace()
         return first_bases, last_bases
     
     def get_nicks(self) ->int:
-        
-        
-        
-        return
-
+        nicks = []
+        for base in self.first_bases:
+            base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
+            base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf)
+            if base_plus in self.last_bases:
+                nicks.append((base,base_plus))#order of nick is always (first,last)
+            elif base_minus in self.last_bases:
+                nicks.append((base,base_minus))
+        #ipdb.set_trace()       
+        return nicks
+    
+    def get_n_nicks(self) -> int:
+        return len(self.nicks)
+    
     def get_all_co_skips(self) -> list:
         all_co_skips = []
         for strand in self.all_strands:
