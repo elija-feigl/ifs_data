@@ -25,25 +25,43 @@ class DesignData(object):
     def compute_data(self) -> dict:
         data = {}
         data["n_staples"] = self.get_number_of_staple()
-        staple_length_avg, staple_length_std = self.get_staple_length_parameter()
-        data["staple_length_avg"] = staple_length_avg
-        data["staple_length_std"] = staple_length_std
-        data["avg_helices_staples_pass"] = self.avg_helices_staples_pass()
+        st_l_avg, s_l_std, max_l, min_l = self.get_staple_length_statistics()
+        data["staple_length_avg"] = st_l_avg
+        data["staple_length_std"] = s_l_std
+        data["staple_max_length"] = max_l
+        data["staple_min_length"] = min_l
+        
+        avg_h_st_p, std_h_st_p, max_h_st_p, min_h_s_p = self.helices_staples_pass_statistics()
+        data["avg_helices_staples_pass"] = avg_h_st_p 
+        data["std_helices_staples_pass"] = std_h_st_p
+        data["max_helices_a_staples_pass"] = max_h_st_p
+        data["min_helices_staples_pass"] = min_h_s_p
+        
         data["num_skips"] = self.get_n_skips()
         data["num_nicks"] = self.get_n_nicks()
+        
         data["total_co"] = self.get_total_n_co()
+        
+        avg_n_st_co, std_n_st_co, max_n_st_co, min_n_st_co = self.staples_crossovers_statistics()
+        data["avg_n_staples_co"] = avg_n_st_co
+        data["std_n_staples_co"] = std_n_st_co
+        data["max_n_staples_co"] = max_n_st_co
+        data["min_n_staples_co"] = min_n_st_co
+        
         n_half, n_full, n_end = self.get_co_type()
-        data["avg_n_staples_co"] = self.avg_staples_crossovers()
         data["half_co"] = n_half
         data["full_co"] = n_full
         data["endloops"] = n_end
+        
         scaf_co, staple_co = self.get_staple_scaffold_co_n()
         data["scaf_co"] = scaf_co
         data["staple_co"] = staple_co
+        
         n_staple_half, n_staple_full, n_staple_end = self.get_staple_co_types()
         data["half_staple_co"] = n_staple_half
         data["full_staple_co"] = n_staple_full
         data["staple_endloops"] = n_staple_end
+        
         n_scaf_half, n_scaf_full, n_scaf_end = self.get_scaf_co_types()
         data["half_scaff_co"] = n_scaf_half
         data["full_scaff_co"] = n_scaf_full
@@ -99,13 +117,13 @@ class DesignData(object):
                     all_bases.append(base)
         return all_bases
         
-    def get_staple_length_parameter(self):
+    def get_staple_length_statistics(self):
         len_strands = []
         for strand in self.all_strands:
             if not strand.is_scaffold:
                 tour_clean = [base for base in strand.tour if base.num_deletions == 0]
                 len_strands.append(len(tour_clean))
-        return np.average(len_strands), np.std(len_strands)
+        return np.average(len_strands), np.std(len_strands), np.max(len_strands), np.min(len_strands)
 
     def get_n_skips(self) -> int:
         num_skips = 0
@@ -134,8 +152,8 @@ class DesignData(object):
         #ipdb.set_trace()
         return helices_n
             
-    def avg_helices_staples_pass(self) -> int:
-        return np.average(self.helices_n)
+    def helices_staples_pass_statistics(self) -> int:
+        return np.average(self.helices_n), np.std(self.helices_n), np.max(self.helices_n), np.min(self.helices_n)
     
     def init_helix_dict(self) -> dict:
         helix_dic = {}
@@ -147,12 +165,12 @@ class DesignData(object):
         return helix_dic
     
     def get_first_last_bases_of_strands(self) -> list:
-        first_bases = []
-        last_bases = []
+        first_bases = set()
+        last_bases = set()
         for strand in self.all_strands:
             if not strand.is_scaffold:
-                first_bases.append(strand.tour[0])
-                last_bases.append(strand.tour[-1])
+                first_bases.add(strand.tour[0])
+                last_bases.add(strand.tour[-1])
         #ipdb.set_trace()
         return first_bases, last_bases
     
@@ -198,7 +216,7 @@ class DesignData(object):
     def get_total_n_co(self) -> int:
         return len(self.all_co)/2.
     
-    def avg_staples_crossovers(self) -> int:
+    def staples_crossovers_statistics(self) -> int:
         co_staple = []
         n_co_staples = []
         for strand in self.all_strands:
@@ -208,25 +226,26 @@ class DesignData(object):
                         co_staple.append(base)
                 n_co_staples.append(len(co_staple)/2.)
                 co_staple = []
-        return np.average(n_co_staples)       
+        return np.average(n_co_staples), np.std(n_co_staples), np.max(n_co_staples), np.min(n_co_staples)       
         
     def get_co_type(self) -> int:
         n_end = 0
         n_half = 0
         n_full = 0
 
-        for co in self.all_co_skips:
+        for co in self.all_co:
             base_plus = self.get_base_from_hps(co.h, co.p + 1, co.is_scaf)
             base_minus = self.get_base_from_hps(co.h, co.p - 1, co.is_scaf)
-            is_end = base_plus is None or base_minus is None
-            is_full = base_plus in self.all_co_skips or base_minus in self.all_co_skips
-            is_half = not is_end and not is_full
-            if is_end:
-                n_end += 1
-            elif is_full:
+ 
+            is_full = (base_plus in self.all_co) or (base_minus in self.all_co)
+            is_half = (base_plus is not None) and (base_minus is not None) and not is_full
+            
+            if is_full:
                 n_full += 1
             elif is_half:
                 n_half += 1
+            else:
+                n_end += 1
             #ipdb.set_trace()
         return n_half/2., n_full/4., n_end/2.
  
