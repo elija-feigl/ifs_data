@@ -20,6 +20,7 @@ class DesignData(object):
         self.helix_dic: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
+
          
     def compute_data(self) -> dict:
         data = {}
@@ -46,6 +47,17 @@ class DesignData(object):
         data["std_n_staple_domain"] = std_n_st_do
         data["max_n_staple_domain"] = max_n_st_do
         data["min_n_staple_domain"] = min_n_st_do
+        
+        n_st_l_do, n_st_s_do = self.get_n_staples_with_long_short_domains()
+        data["n_staple_with_long_domains"] = n_st_l_do
+        data["n_staple_with_no_long_domains"] = n_st_s_do
+        
+        avg_n_l_do, std_n_l_do, max_n_l_do, min_n_l_do = self.get_long_domains_statistic()
+        data["avg_n_long_domain_in_staples"] = avg_n_l_do
+        data["std_n_long_domain_in_staples"] = std_n_l_do
+        data["max_n_long_domain_in_staples"] = max_n_l_do
+        data["min_n_long_domain_in_staples"] = min_n_l_do
+        
         
         avg_n_st_co, std_n_st_co, max_n_st_co, min_n_st_co = self.staples_crossovers_statistics()
         data["avg_n_staples_co"] = avg_n_st_co
@@ -128,7 +140,8 @@ class DesignData(object):
             if not strand.is_scaffold:
                 tour_clean = [base for base in strand.tour if base.num_deletions == 0]
                 len_strands.append(len(tour_clean))
-        return np.average(len_strands), np.std(len_strands), np.max(len_strands), np.min(len_strands)
+        return (np.average(len_strands), np.std(len_strands),
+                np.max(len_strands), np.min(len_strands))
 
     def get_n_skips(self) -> int:
         num_skips = 0
@@ -143,7 +156,36 @@ class DesignData(object):
             if not strand.is_scaffold:
                 n_st_domains.append(len(strand.domain_list))
         #ipdb.set_trace()
-        return np.average(n_st_domains), np.std(n_st_domains), np.max(n_st_domains), np.min(n_st_domains)      
+        return (np.average(n_st_domains), np.std(n_st_domains), 
+                np.max(n_st_domains), np.min(n_st_domains) )     
+    
+    def get_n_staples_with_long_short_domains(self) -> int:
+        long_st_domain = []
+        short_st_domain = []
+        for strand in self.all_strands:
+            if not strand.is_scaffold:
+                for domain in strand.domain_list:
+                    if len(domain.base_list) >= 14:
+                        long_st_domain.append(strand)
+                if strand not in long_st_domain:
+                    short_st_domain.append(strand)
+        #ipdb.set_trace()
+        return len(long_st_domain), len(short_st_domain)
+    
+    def get_long_domains_statistic(self) -> int:
+        long_st_domain = []
+        n_long_domains = []
+        for strand in self.all_strands:
+            n_long_do = 0
+            if not strand.is_scaffold:
+                for domain in strand.domain_list:
+                    if len(domain.base_list) >= 14:
+                        long_st_domain.append(strand)
+                        n_long_do +=1 
+                n_long_domains.append(n_long_do)
+                
+        return (np.average(n_long_domains), np.std(n_long_domains),
+                np.max(n_long_domains), np.min(n_long_domains))
     
     def get_number_of_staple(self) -> int:
         num_staples = []
@@ -166,7 +208,8 @@ class DesignData(object):
         return helices_n
             
     def helices_staples_pass_statistics(self) -> int:
-        return np.average(self.helices_n), np.std(self.helices_n), np.max(self.helices_n), np.min(self.helices_n)
+        return (np.average(self.helices_n), np.std(self.helices_n),
+                np.max(self.helices_n), np.min(self.helices_n))
     
     def init_helix_dict(self) -> dict:
         helix_dic = {}
@@ -224,7 +267,8 @@ class DesignData(object):
                         co_staple.append(base)
                 n_co_staples.append(len(co_staple)/2.)
                 co_staple = []
-        return np.average(n_co_staples), np.std(n_co_staples), np.max(n_co_staples), np.min(n_co_staples)       
+        return (np.average(n_co_staples), np.std(n_co_staples),
+                np.max(n_co_staples), np.min(n_co_staples))     
         
     def get_co_type(self) -> int:
         n_end = 0
