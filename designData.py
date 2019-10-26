@@ -42,6 +42,12 @@ class DesignData(object):
         
         data["total_co"] = self.get_total_n_co()
         
+        avg_n_st_do, std_n_st_do, max_n_st_do, min_n_st_do = self.get_staple_domain_statistics()
+        data["avg_n_staple_domain"] = avg_n_st_do 
+        data["std_n_staple_domain"] = std_n_st_do
+        data["max_n_staple_domain"] = max_n_st_do
+        data["min_n_staple_domain"] = min_n_st_do
+        
         avg_n_st_co, std_n_st_co, max_n_st_co, min_n_st_co = self.staples_crossovers_statistics()
         data["avg_n_staples_co"] = avg_n_st_co
         data["std_n_staples_co"] = std_n_st_co
@@ -132,6 +138,14 @@ class DesignData(object):
             num_skips += len(skips)
         return num_skips
 
+    def get_staple_domain_statistics(self) -> list:
+        n_st_domains = []
+        for strand in self.all_strands:
+            if not strand.is_scaffold:
+                n_st_domains.append(len(strand.domain_list))
+        #ipdb.set_trace()
+        return np.average(n_st_domains), np.std(n_st_domains), np.max(n_st_domains), np.min(n_st_domains)      
+    
     def get_number_of_staple(self) -> int:
         num_staples = []
         for strand in self.all_strands:
