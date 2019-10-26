@@ -48,7 +48,7 @@ class DesignData(object):
         data["max_n_staple_domain"] = max_n_st_do
         data["min_n_staple_domain"] = min_n_st_do
         
-        n_st_l_do, n_st_s_do = self.get_n_staples_with_long_short_domains()
+        n_st_l_do, n_st_s_do = self.get_n_staples_with_and_without_long_domains()
         data["n_staple_with_long_domains"] = n_st_l_do
         data["n_staple_with_no_long_domains"] = n_st_s_do
         
@@ -159,7 +159,7 @@ class DesignData(object):
         return (np.average(n_st_domains), np.std(n_st_domains), 
                 np.max(n_st_domains), np.min(n_st_domains) )     
     
-    def get_n_staples_with_long_short_domains(self) -> int:
+    def get_n_staples_with_and_without_long_domains(self) -> int:
         long_st_domain = []
         short_st_domain = []
         for strand in self.all_strands:
