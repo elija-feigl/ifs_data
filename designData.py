@@ -14,7 +14,6 @@ class DesignData(object):
         self.all_bases: list = self.get_all_bases()
         self.hps_base: dict = self.init_hps()
         #self.position_of_base: dict = self.get_hps_from_base()
-        self.all_co_skips: list = self.get_all_co_skips()
         self.all_co: list = self.get_all_co()
         self.scaf_co_bases, self.staple_co_bases = self.get_staple_scaffold_co_bases()
         self.helices_n: list = self.get_helix_per_staple()
@@ -203,21 +202,6 @@ class DesignData(object):
     def get_n_nicks(self) -> int:
         return len(self.nicks)
     
-    def get_all_co_skips(self) -> list:
-        all_co_skips = []
-        for strand in self.all_strands:
-                for base in strand.tour:
-                    if self.dna_structure._check_base_crossover(base):
-                        if base.num_deletions == -1:
-                            if base.up.h != base.h:
-                                all_co_skips.append(base.down)
-                            elif base.up.h == base.h:
-                                all_co_skips.append(base.up)
-                        else:
-                            all_co_skips.append(base)
-        #ipdb.set_trace()
-        return all_co_skips
-    
     def get_all_co(self):
         all_co = []
         for strand in self.all_strands:
@@ -267,7 +251,7 @@ class DesignData(object):
         scaf_co_bases = []
         staple_co_bases = []
         
-        for base in self.all_co_skips:
+        for base in self.all_co:
         #considering the skips in crossovers
             if base.is_scaf:
                 scaf_co_bases.append(base)
