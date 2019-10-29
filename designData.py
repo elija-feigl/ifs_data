@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from nanodesign.converters import Converter
 import numpy as np
-import ipdb  # use this for debugging instead of print() (ipdb.set_trace())
+#import ipdb  # use this for debugging instead of print() (ipdb.set_trace())
 
 class DesignData(object):
 
