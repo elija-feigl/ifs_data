@@ -1,4 +1,5 @@
 # Copyright 2016 Autodesk Inc.
+# Modifications Copyright (C) 2019 Dietzlab (TUM), Elija Feigl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,19 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-The (dummy) InternalData class. Probably we can remove this and replace with a better name, etc, but this gives a basic skeleton for what it might look like.
+""" The (dummy) InternalData class. Probably we can remove this and replace
+    with a better name, etc, but this gives a basic skeleton for what it might
+    look like.
 """
 
 __all__ = ['InternalData']
+
 
 # please use the new style classes!
 class InternalData(object):
     """ The internal data type used by most of the algorithms. """
     pass
 
+
 class DummyHelper(object):
-    """ This is used internally, but shouldn't be exposed as part of the module. Note how __all__ doesn't include this name. """
+    """ This is used internally, but shouldn't be exposed as part of the
+        module. Note how __all__ doesn't include this name. """
     pass
-
-

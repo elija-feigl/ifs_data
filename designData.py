@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 from nanodesign.converters import Converter
+import nanodesign as nd
 import numpy as np
 import ipdb  # use this for debugging instead of print() (ipdb.set_trace())
+import re
 
 class DesignData(object):
 
@@ -89,8 +91,8 @@ class DesignData(object):
         data["scaff_endloops"] = end_scaf_co
         data["staple_endloops"] = end_staple_co
         
-        bluntends = self.get_blunt_ends()
-        data["n_bluntends"] = len(bluntends)
+        #bluntends = self.get_blunt_ends()
+        #data["n_bluntends"] = len(bluntends)
         
         scaf_co_density, st_co_density, all_co_density, all_co_density_noends = self.get_co_density()
         data["scaf_co_density"] = scaf_co_density
@@ -105,10 +107,9 @@ class DesignData(object):
         file_name = self.name + ".json"
         seq_file = self.name + ".seq"
         seq_name = None
-        converter = Converter()
+        converter = Converter(modify=True)
         converter.read_cadnano_file(file_name, None, "p8064")
-        converter.dna_structure.get_domains()
-        #converter.dna_structure.compute_aux_data()
+        converter.dna_structure.compute_aux_data()
         #ipdb.set_trace()
         return converter.dna_structure
 
@@ -130,17 +131,16 @@ class DesignData(object):
         return hps_base
             
     def get_lattice_type(self):
-        return self.dna_structure.lattice
-    
-    def get_base_from_hps(self, h, p, is_scaffold):
-        try:
-            base = self.hps_base[(h, p, is_scaffold)]
-        except KeyError:
-            return None
-        if base.num_deletions != 0:
-            return base
+        if type(self.dna_structure.lattice) == nd.data.lattice.SquareLattice:
+            return "Square"
         else:
-            return base
+            return "Honeycomb"
+    
+    def get_base_from_hps(self, h, p, is_scaffold, dir=1):
+        if (h, p) in self.dna_structure.Dhp_skips:
+            p += np.sign(dir) 
+        return self.hps_base.get((h, p, is_scaffold), None)
+
         
     def get_hps_from_base(self, base):
         return (base.h, base.p, base.is_scaf)
@@ -150,15 +150,14 @@ class DesignData(object):
         all_bases = []
         for strand in self.all_strands:
             for base in strand.tour: 
-                if base.num_deletions == 0:
-                    all_bases.append(base)
+                all_bases.append(base)
         return all_bases
         
     def get_staple_length_statistics(self):
         len_strands = []
         for strand in self.all_strands:
             if not strand.is_scaffold:
-                tour_clean = [base for base in strand.tour if base.num_deletions == 0]
+                tour_clean = [base for base in strand.tour]
                 len_strands.append(len(tour_clean))
         return (np.average(len_strands), np.std(len_strands),
                 np.max(len_strands), np.min(len_strands))
@@ -179,19 +178,12 @@ class DesignData(object):
         return helices
                     
     def get_n_skips(self) -> int:
-        num_skips = 0
-        skips = []
-        for strand in self.all_strands:
-            for base in strand.tour:
-                if base.num_deletions == -1:
-                    skips.append(base)
-        num_skips = len(skips)
-        return num_skips/2.
+        return len(self.dna_structure.Dhp_skips)
 
     def get_staple_domain_statistics(self) -> list:
         n_st_domains = []
         for strand in self.all_strands:
-            if strand.is_scaffold:
+            if not strand.is_scaffold:
                 n_st_domains.append(len(strand.domain_list))
         #ipdb.set_trace()
         return (np.average(n_st_domains), np.std(n_st_domains), 
@@ -272,7 +264,7 @@ class DesignData(object):
         nicks = []
         for base in self.first_bases:
             base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-            base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf)
+            base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf, dir=-1)
             if base_plus in self.last_bases:
                 nicks.append((base,base_plus))#order of nick is always (first,last)
             elif base_minus in self.last_bases:
@@ -339,7 +331,7 @@ class DesignData(object):
             co_tuple_minus = set()
             for base in co:
                 base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-                base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf)
+                base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf, dir=-1)
                 co_tuple_plus.add(base_plus)
                 co_tuple_minus.add(base_minus)
             #ipdb.set_trace()
@@ -363,7 +355,7 @@ class DesignData(object):
         for co in self.all_co_tuples_list:   
             for base in co:
                 base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-                base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf)
+                base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf, dir=-1)
                 #base_plus_list.append(base_plus)
                 if (base_plus is None) or (base_minus is None):
                     end_co_set.add(co)
@@ -441,6 +433,8 @@ class DesignData(object):
         
         def cleanup_co(co_list):
             n_ends = 0
+            if not co_list:
+               return 0, 0
             if co_list[0]+1 != co_list[1]:
                 n_ends += 1
                 co_list = co_list[1:]
@@ -514,12 +508,16 @@ def export_data(data: dict, name: str) -> None:
     return
 
 def main():
-    print("master, I am awaiting the name of your design")
-    name = input()
-    print("Thank you Sir")
+    file  = open("txt_file.txt", 'rt', encoding="utf8")
+    for i, line in enumerate(file):
+        if i == 3:
+            if line.startswith('Project =  '):
+                name = line[11:-1]
+    #print("master, I am awaiting the name of your design")
+    #name = input()
+    #print("Thank you Sir")
     designData = DesignData(name=name)
     data = designData.compute_data()
-    #ipdb.set_trace()
     export_data(data=data, name=name)
     return
 

@@ -1,4 +1,5 @@
 # Copyright 2016 Autodesk Inc.
+# Modifications Copyright (C) 2019 Dietzlab (TUM), Elija Feigl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-nanodesign.converters
-===================== 
+""" nanodesign.converters
+    =====================
 
-Module containing converters from standard data types into Python objects (probably the nanodesign.data classes).
+    Module containing converters from standard data types into Python objects
+    (probably the nanodesign.data classes).
 """
 
 from .converter import Converter
 
 __all__ = ['converter']
 
-#This file intentionally mostly blank.
+# This file intentionally mostly blank.

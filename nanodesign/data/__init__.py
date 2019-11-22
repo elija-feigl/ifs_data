@@ -1,4 +1,5 @@
 # Copyright 2016 Autodesk Inc.
+# Modifications Copyright (C) 2019 Dietzlab (TUM), Elija Feigl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-nanodesign.data
-===============
+""" nanodesign.data
+ ===============
 
-Module containing data types (classes) for representing and operating on DNA nanostructure designs.
+    Module containing data types (classes) for representing and operating on
+    DNA nanostructure designs.
 """
 
 
 # bring in the classes from internaldata
-#import internaldata
+# import internaldata
 from .internaldata import *
 
-#import domain
+# import domain
 from .domain import *
 
-#import energymodelw
+# import energymodelw
 from .energymodel import *
 
-#__all__ = []
-#__all__.extend( internaldata.__all__ )
-#__all__.extend( domain.__all__ )
-#__all__.extend( energymodel.__all__ )
-
+# __all__ = []
+# __all__.extend(internaldata.__all__)
+# __all__.extend(domain.__all__)
+# __all__.extend(energymodel.__all__)

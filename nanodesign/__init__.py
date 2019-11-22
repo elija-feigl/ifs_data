@@ -1,4 +1,5 @@
 # Copyright 2016 Autodesk Inc.
+# Modifications Copyright (C) 2019 Dietzlab (TUM), Elija Feigl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-NanoDesign
-==========
+""" NanoDesign
+ ==========
 
-Provides
-  1. A interface into multiple file types found in various DNA nanostructure design tools, such as Cadnano, (others?)
-  2. A data format for representing DNA nanostructure designs, suitable for visualization and algorithmic use.
-  3. Standard algorithms to run on DNA nanostructure designs, for characterizing various statistics or performing editing operations.
+    Provides
+    1. A interface into multiple file types found in various DNA nanostructure
+        design tools, such as Cadnano, (others?)
+    2. A data format for representing DNA nanostructure designs, suitable for
+        visualization and algorithmic use.
+    3. Standard algorithms to run on DNA nanostructure designs, for
+        characterizing various statistics or performing editing operations.
 
-Documentation is currently sparse at best, but you should be able to explore the docstrings of various functions and packages.
+    Documentation is currently sparse at best, but you should be able to
+    explore the docstrings of various functions and packages.
 
-Available subpackages
----------------------
+    Available subpackages
+    ---------------------
 
-data
+    data
     Internal data formats
-converters
+    converters
     File loading and conversion routines.
-algorithms
-    Statistics and other algorithms on these file types (maybe should just be in the core package? maybe all of it should?)
+    algorithms
+    Statistics and other algorithms on these file types (maybe should just be
+    in the core package? maybe all of it should?)
 
 """
 from __future__ import print_function
@@ -42,14 +47,11 @@ from .core import *
 
 from . import data
 from . import converters
-from . import algorithms
-from . import utils
-from . import visualizer
 
 from .data import Domain
-
 from .data import energy_model
 from .data import convert_temperature_K_to_C
+
 
 # Create a logger console handler and set logging output format.
 def _init_logging():
@@ -61,10 +63,11 @@ def _init_logging():
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
+
 _init_logging()
+
 
 # Designate which components will be in the * namespace.
 __all__ = []
 __all__.extend(core.__all__)
-__all__.extend(['data','converters','algorithms','utils','visualizer'])
-
+__all__.extend(['data', 'converters'])
