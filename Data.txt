@@ -1,3 +1,0 @@
-AvgStapleLength, StdStapleLength, N_skips, N_staples, N_scaffold_crossovers, N_Staple_crossovers, N_Total_crossovers, N_ Single_crossovers, N_Double_crossovers, N_End_crossovers
-42.753926701570684, 7.819104859981177, 480, 191, 233, 561, 794, 501, 241, 52, 
-END
