@@ -67,7 +67,12 @@ class DesignData(object):
         data["n_staple_with_long_domains"] = n_st_l_do
         data["n_staple_with_no_long_domains"] = n_st_s_do
         
-        avg_n_l_do, std_n_l_do, max_n_l_do, min_n_l_do = self.get_long_domains_statistic()
+        (avg_n_l_do, std_n_l_do, max_n_l_do, min_n_l_do, n_st_with_2_long_do,
+        n_st_with_one_long_do, n_st_with_no_long_do) = self.get_long_domains_statistic()
+        data["n_staple_with_more_than_2_long_domains"] = n_st_with_2_long_do
+        data["n_staple_with_one_long_domains"] = n_st_with_one_long_do
+        data["n_staple_with_no_long_domains"] = n_st_with_no_long_do
+        
         data["avg_n_long_domain_in_staples"] = avg_n_l_do
         data["std_n_long_domain_in_staples"] = std_n_l_do
         data["max_n_long_domain_in_staples"] = max_n_l_do
@@ -217,17 +222,38 @@ class DesignData(object):
     def get_long_domains_statistic(self) -> int:
         long_st_domain = []
         n_long_domains = []
+        n_strands_with_morethan_2_long_domians = []
+        n_strands_with_one_long_domain = []
+        n_strands_with_no_long_domain = []
+        
         for strand in self.all_strands:
             n_long_do = 0
             if not strand.is_scaffold:
                 for domain in strand.domain_list:
                     if len(domain.base_list) >= 14:
                         long_st_domain.append(strand)
-                        n_long_do +=1 
-                n_long_domains.append(n_long_do)
+                if len(long_st_domain) >= 2 :
+                    n_strands_with_morethan_2_long_domians.append(strand)
+                elif len(long_st_domain) == 1:
+                    n_strands_with_one_long_domain.append(strand)
+                elif len(long_st_domain) == 0:
+                    n_strands_with_no_long_domain.append(strand)
+                    
+            n_long_domains.append(len(long_st_domain))
+            long_st_domain = []
+        ipdb.set_trace()   
+        #for do in n_long_domains:
+            #if do>=2:
                 
+           # elif do == 1:
+           #     n_strands_with_one_long_domain += 1
+          #  elif do == 0:
+         #       n_strands_with_no_long_domain += 1
+        #     
         return (np.average(n_long_domains), np.std(n_long_domains),
-                np.max(n_long_domains), np.min(n_long_domains))
+                np.max(n_long_domains), np.min(n_long_domains), 
+                len(n_strands_with_morethan_2_long_domians),
+                len(n_strands_with_one_long_domain), len(n_strands_with_no_long_domain))
     
     def get_number_of_staple(self) -> int:
         num_staples = []
