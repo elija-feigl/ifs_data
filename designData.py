@@ -85,8 +85,8 @@ class DesignData(object):
         avg_n_st_co, std_n_st_co, max_n_st_co, min_n_st_co = self.staples_crossovers_statistics()
         data["avg_n_staples_co"] = avg_n_st_co
         data["std_n_staples_co"] = std_n_st_co
-        data["max_n_staples_co"] = max_n_st_co
-        data["min_n_staples_co"] = min_n_st_co
+        data["max_n_co_of_a_staple"] = max_n_st_co
+        data["min_n_co_of_a_staple"] = min_n_st_co
         
         full_co, half_co, endloop_co = self.get_n_co_types()
         data["n_all_full_co"] = full_co
@@ -95,10 +95,10 @@ class DesignData(object):
         
         (full_scaf_co, full_staple_co, half_scaf_co, half_staple_co, end_scaf_co, end_staple_co,
         _,_,_,_,_,_,_,_,_,_)= self.get_n_scaf_staple_co_types()
-        data["full_scaff_co"] = full_scaf_co
-        data["full_staple_co"] = full_staple_co
-        data["half_scaff_co"] = half_scaf_co
-        data["half_staple_co"] = half_staple_co
+        data["scaff_full_co"] = full_scaf_co
+        data["staple_full_co"] = full_staple_co
+        data["scaff_half_co"] = half_scaf_co
+        data["staple_half_co"] = half_staple_co
         data["scaff_endloops"] = end_scaf_co
         data["staple_endloops"] = end_staple_co
         
