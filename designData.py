@@ -207,15 +207,15 @@ class DesignData(object):
                 np.max(n_st_domains), np.min(n_st_domains) )     
     
     def get_n_staples_with_and_without_long_domains(self) -> int:
-        long_st_domain = []
-        short_st_domain = []
+        long_st_domain = set()
+        short_st_domain = set()
         for strand in self.all_strands:
             if not strand.is_scaffold:
                 for domain in strand.domain_list:
                     if len(domain.base_list) >= 14:
-                        long_st_domain.append(domain)
+                        long_st_domain.add(strand)
                 if strand not in long_st_domain:
-                    short_st_domain.append(strand)
+                    short_st_domain.add(strand)
         #ipdb.set_trace()
         return len(long_st_domain), len(short_st_domain)
     
@@ -227,7 +227,6 @@ class DesignData(object):
         n_strands_with_no_long_domain = []
         
         for strand in self.all_strands:
-            n_long_do = 0
             if not strand.is_scaffold:
                 for domain in strand.domain_list:
                     if len(domain.base_list) >= 14:
@@ -240,16 +239,8 @@ class DesignData(object):
                     n_strands_with_no_long_domain.append(strand)
                     
             n_long_domains.append(len(long_st_domain))
-            long_st_domain = []
-        ipdb.set_trace()   
-        #for do in n_long_domains:
-            #if do>=2:
-                
-           # elif do == 1:
-           #     n_strands_with_one_long_domain += 1
-          #  elif do == 0:
-         #       n_strands_with_no_long_domain += 1
-        #     
+            long_st_domain = [] 
+  
         return (np.average(n_long_domains), np.std(n_long_domains),
                 np.max(n_long_domains), np.min(n_long_domains), 
                 len(n_strands_with_morethan_2_long_domians),
