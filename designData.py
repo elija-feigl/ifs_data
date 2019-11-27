@@ -2,7 +2,7 @@
 from nanodesign.converters import Converter
 import nanodesign as nd
 import numpy as np
-import ipdb  # use this for debugging instead of print() (ipdb.set_trace())
+#import ipdb  # use this for debugging instead of print() (ipdb.set_trace())
 import re
 import sys
 import os
@@ -13,7 +13,7 @@ class DesignData(object):
     def __init__(self, name: str):
         self.name: str = name
         self.dna_structure = self.init_design()
-        self.all_strands: list = self.dna_structure.strands
+        self.all_strands: list = self.dna_structure.strandstest
         self.pairedbases: list = self.init_pairedbases()
         self.data: dict = {}
         self.all_bases: list = self.get_all_bases()
@@ -22,8 +22,8 @@ class DesignData(object):
         self.all_co_bases: list = self.get_all_co_bases()
         self.all_co_tuples_h, self.all_co_tuples_v = self.get_horozantal_vertical_co()
         self.full_co_list, self.full_co_list_v, self.full_co_list_h = self.get_full_co_list()
-        self.end_co_set: list = self.get_endloop_co_list()
-        self.half_co_list: list = self.get_half_co_list()
+        self.end_co_set, self.end_co_set_v, self.end_co_set_h = self.get_endloop_co_list()
+        self.half_co_list, self.half_co_list_v, self.half_co_list_h = self.get_half_co_list()
         self.scaf_co_bases, self.staple_co_bases = self.get_staple_scaffold_co_bases()
         self.helices_n: list = self.get_helix_per_staple()
         self.helix_dic: dict = self.init_helix_dict()
@@ -121,7 +121,7 @@ class DesignData(object):
         return self.data
 
     def init_design(self):
-        file_name = self.name + ".json"
+        file_name = "./Design Structures/" + self.name + ".json"
         seq_file = self.name + ".seq"
         seq_name = None
         converter = Converter(modify=True)
@@ -411,8 +411,8 @@ class DesignData(object):
     
     def get_endloop_co_list(self) -> list:    
         end_co_set = set()
-        end_co_list_h= set()
-        end_co_list_v = set()
+        end_co_set_h= set()
+        end_co_set_v = set()
         #base_plus_list = []
         for co in self.all_co_tuples_list:   
             for base in co:
@@ -422,11 +422,11 @@ class DesignData(object):
                 if (base_plus is None) or (base_minus is None):
                     end_co_set.add(co)
                     if co in self.all_co_tuples_h:
-                        end_co_list_h.add(co)
+                        end_co_set_h.add(co)
                     else:
-                        end_co_list_v.add(co)
+                        end_co_set_v.add(co)
         #ipdb.set_trace()
-        return end_co_set
+        return end_co_set, end_co_set_v, end_co_set_h
  
     def get_half_co_list(self) -> list:
         half_co_list = []
@@ -440,7 +440,7 @@ class DesignData(object):
                 else:
                     half_co_list_v.append(co)
         #ipdb.set_trace()        
-        return half_co_list
+        return half_co_list, half_co_list_v, half_co_list_h
     
     def get_n_co_types(self) -> int:
         return len(self.full_co_list)/2., len(self.half_co_list), len(self.end_co_set)
