@@ -13,10 +13,9 @@ class DesignData(object):
     def __init__(self, name: str):
         self.name: str = name
         self.dna_structure = self.init_design()
-        self.all_strands: list = self.dna_structure.strandstest
-        self.pairedbases: list = self.init_pairedbases()
+        self.all_strands: list = self.dna_structure.strands
         self.data: dict = {}
-        self.all_bases: list = self.get_all_bases()
+        self.all_bases: list = self.get_all_bases_with_skips()
         self.hps_base: dict = self.init_hps()
         self.all_co_tuples_list: list = self.get_all_co_tuple()
         self.all_co_bases: list = self.get_all_co_bases()
@@ -130,15 +129,6 @@ class DesignData(object):
         #ipdb.set_trace()
         return converter.dna_structure
 
-    def init_pairedbases(self) -> list:
-        pairedbases = []
-        for strand in self.all_strands:
-            for base in strand.tour:
-                if base.across is not None:
-                    pairedbases.append(base)
-
-        return pairedbases
-    
     def init_hps(self) -> dict:
         hps_base = {}
         for strand in self.all_strands:  
@@ -146,28 +136,24 @@ class DesignData(object):
                 position = (base.h, base.p, base.is_scaf)
                 hps_base[position] = base
         return hps_base
-            
+
+    def get_base_from_hps(self, h, p, is_scaffold, dir=1):
+        if (h, p) in self.dna_structure.Dhp_skips:
+            p += np.sign(dir) 
+        return self.hps_base.get((h, p, is_scaffold), None) 
+
     def get_lattice_type(self):
         if type(self.dna_structure.lattice) == nd.data.lattice.SquareLattice:
             return "Square"
         else:
             return "Honeycomb"
-    
-    def get_base_from_hps(self, h, p, is_scaffold, dir=1):
-        if (h, p) in self.dna_structure.Dhp_skips:
-            p += np.sign(dir) 
-        return self.hps_base.get((h, p, is_scaffold), None)
 
-        
-    def get_hps_from_base(self, base):
-        return (base.h, base.p, base.is_scaf)
-
-        
-    def get_all_bases(self) -> list:
+    def get_all_bases_with_skips(self) -> list:
         all_bases = []
         for strand in self.all_strands:
             for base in strand.tour: 
-                all_bases.append(base)
+                #if base not in self.dna_structure.Dhp_skips:
+                all_bases.append(base)     
         return all_bases
         
     def get_staple_length_statistics(self):
