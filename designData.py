@@ -36,11 +36,9 @@ class DesignData(object):
         data["Lattice type"] = self.get_lattice_type()
         data["n_staples"] = len(self.get_all_staple())
         
-        st_l_avg, s_l_std, max_l, min_l = self.get_staple_length_statistics()
-        data["staple_length_avg"] = st_l_avg
-        data["staple_length_std"] = s_l_std
-        data["staple_max_length"] = max_l
-        data["staple_min_length"] = min_l
+        staple_statistics = self.get_staple_length_statistics()
+        for (key, stat) in staple_statistics.items():
+            data[key] = stat
         
         avg_h_st_p, std_h_st_p, max_h_st_p, min_h_s_p = self.helices_staples_pass_statistics()
         data["avg_helices_staples_pass"] = avg_h_st_p 
@@ -133,7 +131,7 @@ class DesignData(object):
                 position = (base.h, base.p, base.is_scaf)
                 hps_base[position] = base
         return hps_base
-
+        
     def get_base_from_hps(self, h, p, is_scaffold, dir=1):
         if (h, p) in self.dna_structure.Dhp_skips:
             p += np.sign(dir) 
@@ -158,8 +156,12 @@ class DesignData(object):
             if not strand.is_scaffold:
                 tour_clean = [base for base in strand.tour]
                 len_strands.append(len(tour_clean))
-        return (np.average(len_strands), np.std(len_strands),
-                np.max(len_strands), np.min(len_strands))
+        return {
+            "staple_length_avg": np.average(len_strands),
+            "staple_length_std": np.std(len_strands),
+            "min_staple_length": np.min(len_strands),
+            "max_staple_length": np.max(len_strands),
+        }
         
     def get_structure_size(self):
         
@@ -665,11 +667,11 @@ def export_data(data: dict, name: str) -> None:
     return
 
 def main():
-    file  = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
-    for line in file:
-        if line.startswith('Project ='):
-            name = line[9:-1].strip()
-            break
+    #file  = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
+    #for line in file:
+      #  if line.startswith('Project ='):
+     #       name = line[9:-1].strip()
+    #        break
     print("master, I am awaiting the name of your design")
     name = input()
     print("Thank you Sir")
