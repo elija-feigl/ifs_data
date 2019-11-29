@@ -15,7 +15,7 @@ class DesignData(object):
         self.dna_structure = self.init_design()
         self.all_strands: list = self.dna_structure.strands
         self.data: dict = {}
-        self.all_bases: list = self.get_all_bases_with_skips()
+        self.all_bases: list = self.get_all_bases()
         self.hps_base: dict = self.init_hps()
         self.all_co_tuples_list: list = self.get_all_co_tuple()
         self.all_co_bases: list = self.get_all_co_bases()
@@ -27,17 +27,14 @@ class DesignData(object):
         self.helices_n: list = self.get_helix_per_staple()
         self.helix_dic: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
-        self.helices = self.get_helices()
+        self.helices = self.get_structure_helices()
         self.nicks: list = self.get_nicks()
-        
-        #self.possible_co: list = self.co_density()
-
          
     def compute_data(self) -> dict:
         data = {}
         
         data["Lattice type"] = self.get_lattice_type()
-        data["n_staples"] = self.get_number_of_staple()
+        data["n_staples"] = len(self.get_all_staple())
         
         st_l_avg, s_l_std, max_l, min_l = self.get_staple_length_statistics()
         data["staple_length_avg"] = st_l_avg
@@ -51,9 +48,9 @@ class DesignData(object):
         data["max_helices_a_staples_pass"] = max_h_st_p
         data["min_helices_staples_pass"] = min_h_s_p
         
-        data["n_helices"] = len(self.get_helices())
+        data["n_helices"] = len(self.get_structure_helices())
         data["n_skips"] = self.get_n_skips()
-        data["n_nicks"] = self.get_n_nicks()
+        data["n_nicks"] = len(self.nicks)
         data["n_co"] = self.get_total_n_co()
         
         avg_n_st_do, std_n_st_do, max_n_st_do, min_n_st_do = self.get_staple_domain_statistics()
@@ -148,11 +145,10 @@ class DesignData(object):
         else:
             return "Honeycomb"
 
-    def get_all_bases_with_skips(self) -> list:
+    def get_all_bases(self) -> list:
         all_bases = []
         for strand in self.all_strands:
             for base in strand.tour: 
-                #if base not in self.dna_structure.Dhp_skips:
                 all_bases.append(base)     
         return all_bases
         
@@ -169,7 +165,7 @@ class DesignData(object):
         
         return
     
-    def get_helices(self) -> int:
+    def get_structure_helices(self) -> int:
         helices = set()
         for strand in self.all_strands:
             if strand.is_scaffold:
@@ -177,7 +173,6 @@ class DesignData(object):
                     if self.dna_structure._check_base_crossover(base):
                         if base.h not in helices:
                             helices.add(base.h)
-        #ipdb.set_trace()
         return helices
                     
     def get_n_skips(self) -> int:
@@ -188,7 +183,7 @@ class DesignData(object):
         for strand in self.all_strands:
             if not strand.is_scaffold:
                 n_st_domains.append(len(strand.domain_list))
-        #ipdb.set_trace()
+
         return (np.average(n_st_domains), np.std(n_st_domains), 
                 np.max(n_st_domains), np.min(n_st_domains) )     
     
@@ -202,7 +197,7 @@ class DesignData(object):
                         long_st_domain.add(strand)
                 if strand not in long_st_domain:
                     short_st_domain.add(strand)
-        #ipdb.set_trace()
+
         return len(long_st_domain), len(short_st_domain)
     
     def get_long_domains_statistic(self) -> int:
@@ -232,12 +227,12 @@ class DesignData(object):
                 len(n_strands_with_morethan_2_long_domians),
                 len(n_strands_with_one_long_domain), len(n_strands_with_no_long_domain))
     
-    def get_number_of_staple(self) -> int:
-        num_staples = []
+    def get_all_staple(self) -> int:
+        all_staples = []
         for strand in self.all_strands:
             if not strand.is_scaffold:
-                num_staples.append(strand)
-        return len(num_staples)
+                all_staples.append(strand)
+        return all_staples
     
     def get_helix_per_staple(self) -> list:
         helices_n = []
@@ -249,7 +244,7 @@ class DesignData(object):
                         if base.h not in helices:
                             helices.add(base.h)
                 helices_n.append(len(helices))
-        #ipdb.set_trace()
+
         return helices_n
             
     def helices_staples_pass_statistics(self) -> int:
@@ -262,7 +257,7 @@ class DesignData(object):
         for strand, helices in zip(self.all_strands, helix_list):
             dic = {str(strand): helices}
             helix_dic.update(dic)
-        #ipdb.set_trace()
+
         return helix_dic
     
     def get_first_last_bases_of_strands(self) -> list:
@@ -272,7 +267,7 @@ class DesignData(object):
             if not strand.is_scaffold:
                 first_bases.add(strand.tour[0])
                 last_bases.add(strand.tour[-1])
-        #ipdb.set_trace()
+
         return first_bases, last_bases
     
     def get_nicks(self) ->int:
@@ -284,11 +279,8 @@ class DesignData(object):
                 nicks.append((base,base_plus))#order of nick is always (first,last)
             elif base_minus in self.last_bases:
                 nicks.append((base,base_minus))
-        #ipdb.set_trace()       
-        return nicks
     
-    def get_n_nicks(self) -> int:
-        return len(self.nicks)
+        return nicks
     
     def get_all_co_tuple(self) -> list:
         all_co_tuples = set()
@@ -309,7 +301,7 @@ class DesignData(object):
                         co_tuple = set()
         for co in all_co_tuples:
             all_co_tuple_list.append(co)
-        #ipdb.set_trace()
+
         return all_co_tuple_list
     
     def get_horozantal_vertical_co(self):
@@ -328,7 +320,7 @@ class DesignData(object):
             else:
                 all_co_tuples_v.add(co_tuple)
             helix_row = []
-        #ipdb.set_trace()
+
         return all_co_tuples_h, all_co_tuples_v
         
     
@@ -338,7 +330,7 @@ class DesignData(object):
                 for base in strand.tour:
                     if self.dna_structure._check_base_crossover(base):
                             all_co_bases.append(base)
-        #ipdb.set_trace()
+
         return all_co_bases
             
     def get_total_n_co(self) -> int:
@@ -594,17 +586,7 @@ class DesignData(object):
                           ]
             scaf_co_v = sorted(scaf_co_v)
             n_end_sc_v, n_co_sc_v = cleanup_co(scaf_co_v)
-            
-            
-            
-            
-            #stple_co = [co[1] for co in helix.possible_staple_crossovers if is_ds(pos=co[1], hid=helix.id)]
-            #stple_co = sorted(stple_co)
-            #scaf_co = [co[1] for co in helix.possible_scaffold_crossovers if is_ds(pos=co[1], hid=helix.id)]
-            #scaf_co = sorted(scaf_co)
-            #n_end_st, n_co_st = cleanup_co(stple_co)
-            
-            
+    
             n_possible_co_st_v += (n_co_st_v)
             n_possible_co_st_h += (n_co_st_h)
             n_possible_end_co_st_v += n_end_st_v
@@ -613,7 +595,7 @@ class DesignData(object):
             n_possible_co_sc_h += (n_co_sc_h)
             n_possible_end_co_sc_v += n_end_sc_v
             n_possible_end_co_sc_h += n_end_sc_h
-            #ipdb.set_trace()
+
         n_possible_co_st_v = (n_possible_co_st_v)/2  
         n_possible_co_st_h = (n_possible_co_st_h)/2
         n_possible_co_sc_v = (n_possible_co_sc_v)/2  
@@ -623,8 +605,6 @@ class DesignData(object):
         n_possible_end_co_st_h = (n_possible_end_co_st_h)/2
         n_possible_end_co_sc_v = (n_possible_end_co_sc_v)/2
         n_possible_end_co_sc_h = (n_possible_end_co_sc_h)/2
-        
-        #ipdb.set_trace()
         
         (full_scaf_co, full_staple_co, half_scaf_co, 
          half_staple_co, end_scaf_co, end_staple_co, st_half_co_h, 
@@ -652,8 +632,7 @@ class DesignData(object):
                                     st_half_co_v) / (n_possible_co_sc_v + n_possible_co_st_h)
         all_co_density_no_ends_h = (sc_full_co_h + st_full_co_h + half_scaf_co + 
                                     st_half_co_h) / (n_possible_co_sc_h + n_possible_co_st_h)
-
-        #ipdb.set_trace()    
+    
         return (scaf_co_density_v, scaf_co_density_h, st_co_density_v, st_co_density_h, 
                 all_co_density_v, all_co_density_h, all_co_density_no_ends_v, all_co_density_no_ends_h)
     
@@ -686,11 +665,11 @@ def export_data(data: dict, name: str) -> None:
     return
 
 def main():
-    #file  = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
-    #for line in file:
-     #   if line.startswith('Project ='):
-      #      name = line[9:-1].strip()
-       #     break
+    file  = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
+    for line in file:
+        if line.startswith('Project ='):
+            name = line[9:-1].strip()
+            break
     print("master, I am awaiting the name of your design")
     name = input()
     print("Thank you Sir")
