@@ -2,11 +2,10 @@
 from nanodesign.converters import Converter
 import nanodesign as nd
 import numpy as np
-import ipdb  # use this for debugging instead of print() (ipdb.set_trace())
 import re
 import sys
 import os
-from pathlib import Path
+import ipdb
 
 
 class DesignData(object):
@@ -15,19 +14,17 @@ class DesignData(object):
         self.name: str = name
         self.dna_structure = self.init_design()
         self.all_strands: list = self.dna_structure.strands
+        self.all_staples: list = self.get_all_staple()
         self.data: dict = {}
         self.all_bases: list = self.get_all_bases()
         self.hps_base: dict = self.init_hps()
         self.n_st_domains = self.get_staple_domain()
         self.all_co_tuples_list: list = self.get_all_co_tuple()
-        self.all_co_bases: list = self.get_all_co_bases()
         self.all_co_tuples_h, self.all_co_tuples_v = self.get_horozantal_vertical_co()
-        self.full_co_list, self.full_co_list_v, self.full_co_list_h = self.get_full_co_list()
-        self.end_co_set, self.end_co_set_v, self.end_co_set_h = self.get_endloop_co_list()
-        self.half_co_list, self.half_co_list_v, self.half_co_list_h = self.get_half_co_list()
-        self.scaf_co_bases, self.staple_co_bases = self.get_staple_scaffold_co_bases()
-        self.helices_n: list = self.get_helix_per_staple()
-        self.helix_dic: dict = self.init_helix_dict()
+        self.full_co_list = self.get_full_co_list()
+        self.end_co_set = self.get_endloop_co_list()
+        self.half_co_list = self.get_half_co_list()
+        self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
         self.helices = self.get_structure_helices()
         self.nicks: list = self.get_nicks()
@@ -39,23 +36,15 @@ class DesignData(object):
         data["Lattice type"] = self.get_lattice_type()
         data["n_staples"] = len(self.get_all_staple())
         data["staple_length"] = self.get_staples_length()
-        data["helices_staples_pass"] = self.get_helix_per_staple()
+        data["helices_staples_pass"] = list(self.init_helix_dict().values())
         data["n_helices"] = len(self.get_structure_helices())
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
-        data["n_co"] = self.get_total_n_co()
-
+        data["n_co"] = len(self.all_co_tuples_list)
         data["n_staple_domain"] = self.get_staple_domain()
-
         data["long_domains"] = self.get_staples_with_long_domains()
-
         data.update(self.divide_domain_lengths())
 
-        """
-        data["n_staple_with_more_than_2_long_domains"] = n_st_with_2_long_do
-        data["n_staple_with_one_long_domains"] = n_st_with_one_long_do
-        data["n_staple_with_no_long_domains"] = n_st_with_no_long_do
-"""
         data["staples_crossovers"] = self.n_staples_crossovers()
 
         full_co, half_co, endloop_co = self.get_n_co_types()
@@ -91,7 +80,6 @@ class DesignData(object):
         converter = Converter(modify=True)
         converter.read_cadnano_file(file_name, None, "p8064")
         converter.dna_structure.compute_aux_data()
-        # ipdb.set_trace()
         return converter.dna_structure
 
     def init_hps(self) -> dict:
@@ -140,6 +128,7 @@ class DesignData(object):
                     if self.dna_structure._check_base_crossover(base):
                         if base.h not in helices:
                             helices.add(base.h)
+        # ipdb.set_trace()
         return helices
 
     def get_n_skips(self) -> int:
@@ -156,7 +145,6 @@ class DesignData(object):
                 data = {}
         for strand in domain_data.keys():
             n_st_domains.append(len(domain_data[strand]))
-        # ipdb.set_trace()
         # domin_data : is a dict that map the strand ID to the domains it has
         return n_st_domains
 
@@ -174,7 +162,7 @@ class DesignData(object):
                     if len(domain.base_list) >= 14:
                         dummy.append(strand)
                 n_long_domains.append(len(dummy))
-        # ipdb.set_trace()
+
         return n_long_domains
 
     def divide_domain_lengths(self) -> dict:
@@ -183,23 +171,18 @@ class DesignData(object):
         data = {"2_long_domains": [],
                 "1_long_domains": [], "0_long_domains": []}
 
-        for strand in self.all_strands:
-            if not strand.is_scaffold:
-                for domain in strand.domain_list:
-                    if len(domain.base_list) >= 14:
-                        long_st_domain.append(strand)
-                if len(long_st_domain) >= 2:
-                    data["2_long_domains"].append(strand)
-                elif len(long_st_domain) == 1:
-                    data["1_long_domains"].append(strand)
-                elif len(long_st_domain) == 0:
-                    data["0_long_domains"].append(strand)
-                long_st_domain = []
+        for strand in self.all_staples:
+            for domain in strand.domain_list:
+                if len(domain.base_list) >= 14:
+                    long_st_domain.append(strand)
+            if len(long_st_domain) >= 2:
+                data["2_long_domains"].append(strand)
+            elif len(long_st_domain) == 1:
+                data["1_long_domains"].append(strand)
+            elif len(long_st_domain) == 0:
+                data["0_long_domains"].append(strand)
+            long_st_domain = []
 
-        for typ in data.keys():
-            data[typ] = len(data[typ])
-
-        # ipdb.set_trace()
         return data
 
     def get_all_staple(self) -> int:
@@ -209,27 +192,26 @@ class DesignData(object):
                 all_staples.append(strand)
         return all_staples
 
-    def get_helix_per_staple(self) -> list:
-        helices_n = []
-        for strand in self.all_strands:
-            helices = set()
-            if not strand.is_scaffold:
-                for base in strand.tour:
-                    if self.dna_structure._check_base_crossover(base):
-                        if base.h not in helices:
-                            helices.add(base.h)
-                helices_n.append(len(helices))
-
-        return helices_n
-
     def init_helix_dict(self) -> dict:
-        helix_dic = {}
-        helix_list = self.get_helix_per_staple()
-        for strand, helices in zip(self.all_strands, helix_list):
-            dic = {str(strand): helices}
-            helix_dic.update(dic)
+        """
+        [creates a dict with staple ID as key and the number of helices that it passes through as values]
+        """
+        st_helix_dict = {}
+        helices_list = []
+        for strand in self.all_staples:
+            helices = set()
+            for base in strand.tour:
+                if self.dna_structure._check_base_crossover(base):
+                    if base.h not in helices:
+                        helices.add(base.h)
+            helices_list.append(len(helices))
 
-        return helix_dic
+        for strand, helices in zip(self.all_strands, helices_list):
+            if not strand.is_scaffold:
+                dic = {str(strand.id): helices}
+                st_helix_dict.update(dic)
+
+        return st_helix_dict
 
     def get_first_last_bases_of_strands(self) -> list:
         first_bases = set()
@@ -287,7 +269,6 @@ class DesignData(object):
             for base in co_tuple:
                 helix_row.append(map_id_helices[base.h].lattice_row)
             # helix2_row = map_id_helices[co_tuple[1].helix].lattice_row
-                # ipdb.set_trace()
 
             if helix_row[0] == helix_row[1]:
                 all_co_tuples_h.add(co_tuple)
@@ -296,18 +277,6 @@ class DesignData(object):
             helix_row = []
 
         return all_co_tuples_h, all_co_tuples_v
-
-    def get_all_co_bases(self):
-        all_co_bases = []
-        for strand in self.all_strands:
-            for base in strand.tour:
-                if self.dna_structure._check_base_crossover(base):
-                    all_co_bases.append(base)
-
-        return all_co_bases
-
-    def get_total_n_co(self) -> int:
-        return len(self.all_co_bases)/2.
 
     def n_staples_crossovers(self) -> int:
         co_staple = []
@@ -325,8 +294,7 @@ class DesignData(object):
         co_plus_tuples = []
         co_minus_tuples = []
         full_co_list = []
-        full_co_list_v = []
-        full_co_list_h = []
+
         for co in self.all_co_tuples_list:
             co_tuple_plus = set()
             co_tuple_minus = set()
@@ -337,87 +305,45 @@ class DesignData(object):
                     base.h, base.p - 1, base.is_scaf, dir=-1)
                 co_tuple_plus.add(base_plus)
                 co_tuple_minus.add(base_minus)
-            # ipdb.set_trace()
             co_plus_tuples.append(frozenset(co_tuple_plus))
             co_minus_tuples.append(frozenset(co_tuple_minus))
 
             if co_plus_tuples[0] in self.all_co_tuples_list:
                 full_co_list.append(co)
-                if co in self.all_co_tuples_h:
-                    full_co_list_h.append(co)
-                else:
-                    full_co_list_v.append(co)
 
             elif co_minus_tuples[0] in self.all_co_tuples_list:
                 full_co_list.append(co)
-                if co in self.all_co_tuples_h:
-                    full_co_list_h.append(co)
-                else:
-                    full_co_list_v.append(co)
 
             co_plus_tuples = []
             co_minus_tuples = []
 
-        # ipdb.set_trace()
-        return full_co_list, full_co_list_v, full_co_list_h
+        return full_co_list
 
     def get_endloop_co_list(self) -> list:
         end_co_set = set()
-        end_co_set_h = set()
-        end_co_set_v = set()
-        # base_plus_list = []
         for co in self.all_co_tuples_list:
             for base in co:
                 base_plus = self.get_base_from_hps(
                     base.h, base.p + 1, base.is_scaf)
                 base_minus = self.get_base_from_hps(
                     base.h, base.p - 1, base.is_scaf, dir=-1)
-                # base_plus_list.append(base_plus)
+
                 if (base_plus is None) or (base_minus is None):
                     end_co_set.add(co)
-                    if co in self.all_co_tuples_h:
-                        end_co_set_h.add(co)
-                    else:
-                        end_co_set_v.add(co)
-        # ipdb.set_trace()
-        return end_co_set, end_co_set_v, end_co_set_h
+
+        return end_co_set
 
     def get_half_co_list(self) -> list:
         half_co_list = []
-        half_co_list_h = []
-        half_co_list_v = []
+
         for co in self.all_co_tuples_list:
             if (co not in self.end_co_set) and (co not in self.full_co_list):
                 half_co_list.append(co)
-                if co in self.all_co_tuples_h:
-                    half_co_list_h.append(co)
-                else:
-                    half_co_list_v.append(co)
-        # ipdb.set_trace()
-        return half_co_list, half_co_list_v, half_co_list_h
+
+        return half_co_list
 
     def get_n_co_types(self) -> int:
         return len(self.full_co_list)/2., len(self.half_co_list), len(self.end_co_set)
-
-    def get_n_co_types_v_h(self) -> int:
-        return (len(self.full_co_list_v)/2., len(self.half_co_list_v), len(self.end_co_set_v),
-                len(self.full_co_list_h)/2., len(self.half_co_list_h), len(self.end_co_set_h))
-
-    def get_staple_scaffold_co_bases(self):
-        scaf_co_bases = []
-        staple_co_bases = []
-
-        for base in self.all_co_bases:
-            # considering the skips in crossovers
-            if base.is_scaf:
-                scaf_co_bases.append(base)
-            else:
-                staple_co_bases.append(base)
-
-        return scaf_co_bases, staple_co_bases
-
-    def get_n_staple_scaffold_co(self):
-        return len(self.scaf_co_bases)/2., len(self.staple_co_bases)/2.
 
     def get_n_scaf_staple_co_types(self):
         data = {"scaffold": dict(), "staple": dict()}
@@ -442,7 +368,8 @@ class DesignData(object):
                     len_subset = len(co_subsets[s][dir])
                     n_co = len_subset/2 if typ == "full" else len_subset
                     data[s][typ + dir] = n_co
-        # ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
         return data
 
     def get_co_density(self):
@@ -611,32 +538,41 @@ def prep_data_for_export(data):
             for stat_name, stat in stats.items():
                 export[stat_name] = stat
 
-        elif name == "staples_crossovers":
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-
         elif name == "long_domains":
             stats = get_statistics(value, name)
             for stat_name, stat in stats.items():
                 export[stat_name] = stat
 
+        elif name == "staples_crossovers":
+            stats = get_statistics(value, name)
+            for stat_name, stat in stats.items():
+                export[stat_name] = stat
+
+        elif name == "2_long_domains":
+            export[name] = len(value)
+
+        elif name == "1_long_domains":
+            export[name] = len(value)
+
+        elif name == "0_long_domains":
+            export[name] = len(value)
+
         else:
             export[name] = value
-    # ipdb.set_trace()
+
     return export
 
 
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
+    header = ", ".join([str(i) for i in export.keys()])
     export_str = ", ".join([str(i) for i in export.values()])
-    header = ", ".join(str(i) for i in export.keys())
+
     try:
         os.mkdir("out")
     except FileExistsError:
         pass
-    # ipdb.set_trace()
     with open("./out/" + name + "-designdata.csv", mode="w+") as out:
         out.write(header + "\n")
         out.write(export_str)
