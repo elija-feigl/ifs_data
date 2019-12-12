@@ -183,6 +183,7 @@ class DesignData(object):
         helices_list = []
         for strand in self.all_staples:
             helices = set()
+            helices.add(strand.tour[0].h)
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
                     if base.h not in helices:
