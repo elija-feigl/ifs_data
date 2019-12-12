@@ -19,11 +19,13 @@ class DesignData(object):
         self.all_bases: list = self.get_all_bases()
         self.hps_base: dict = self.init_hps()
         self.n_st_domains = self.get_staple_domain()
-        self.all_co_tuples_list: list = self.get_all_co_tuple()
-        self.all_co_tuples_h, self.all_co_tuples_v = self.get_horozantal_vertical_co()
-        self.full_co_list = self.get_full_co_list()
-        self.end_co_set = self.get_endloop_co_list()
-        self.half_co_list = self.get_half_co_list()
+        # crossover
+        self.all_co_tuples_list: list = self._get_all_co_tuple()
+        self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
+        self.full_co_list = self._get_full_co_list()
+        self.end_co_set = self._get_endloop_co_list()
+        self.half_co_list = self._get_half_co_list()
+
         self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
         self.helices = self.get_structure_helices()
@@ -34,42 +36,23 @@ class DesignData(object):
         data = {}
 
         data["Lattice type"] = self.get_lattice_type()
-        data["n_staples"] = len(self.get_all_staple())
-        data["staple_length"] = self.get_staples_length()
-        data["helices_staples_pass"] = list(self.init_helix_dict().values())
         data["n_helices"] = len(self.get_structure_helices())
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
-        data["n_co"] = len(self.all_co_tuples_list)
+        # domains
         data["n_staple_domain"] = self.get_staple_domain()
         data["long_domains"] = self.get_staples_with_long_domains()
         data.update(self.divide_domain_lengths())
-
-        data["staples_crossovers"] = self.n_staples_crossovers()
-
-        full_co, half_co, endloop_co = self.get_n_co_types()
-        data["n_all_full_co"] = full_co
-        data["n_all_half_co"] = half_co
-        data["n_all_endloops"] = endloop_co
-
-        data["co_types"] = self.get_n_scaf_staple_co_types()
+        # staple stats
+        data["n_staples"] = len(self.get_all_staple())
+        data["staple_length"] = self.get_staples_length()
+        data["helices_staples_pass"] = list(self.init_helix_dict().values())
+        # crossovers
+        data["co_set"] = self.get_n_scaf_staple_co_types()
+        data["co_possible"], data["co_density"] = self.get_co_density()
 
         # bluntends = self.get_blunt_ends()
         # data["n_bluntends"] = len(bluntends)
-        """
-
-        (scaf_co_density_v, scaf_co_density_h, st_co_density_v, st_co_density_h,
-         all_co_density_v, all_co_density_h, all_co_density_no_ends_v,
-         all_co_density_no_ends_h) = self.get_co_density()
-        data["scaf_co_density_v"] = scaf_co_density_v
-        data["scaf_co_density_h"] = scaf_co_density_h
-        data["st_co_density_v"] = st_co_density_v
-        data["st_co_density_h"] = st_co_density_h
-        data["all_co_density_v"] = all_co_density_v
-        data["all_co_density_h"] = all_co_density_h
-        data["all_co_density_noends_v"] = all_co_density_no_ends_v
-        data["all_co_density_noends_h"] = all_co_density_no_ends_h
-        """
         self.data = data
         return self.data
 
@@ -238,7 +221,7 @@ class DesignData(object):
 
         return nicks
 
-    def get_all_co_tuple(self) -> list:
+    def _get_all_co_tuple(self) -> list:
         all_co_tuples = set()
         all_co_tuple_list = []
         for strand in self.all_strands:
@@ -260,7 +243,7 @@ class DesignData(object):
 
         return all_co_tuple_list
 
-    def get_horozantal_vertical_co(self):
+    def _get_horozantal_vertical_co(self):
         all_co_tuples_h = set()
         all_co_tuples_v = set()
         helix_row = []
@@ -278,19 +261,12 @@ class DesignData(object):
 
         return all_co_tuples_h, all_co_tuples_v
 
-    def n_staples_crossovers(self) -> int:
-        co_staple = []
-        n_co_staples = []
-        for strand in self.all_strands:
-            if not strand.is_scaffold:
-                for base in strand.tour:
-                    if self.dna_structure._check_base_crossover(base):
-                        co_staple.append(base)
-                n_co_staples.append(len(co_staple)/2.)
-                co_staple = []
-        return n_co_staples
+    def _get_full_co_list(self) -> list:
+        """[summary]
 
-    def get_full_co_list(self) -> list:
+        Returns:
+            list -- [description]
+        """
         co_plus_tuples = []
         co_minus_tuples = []
         full_co_list = []
@@ -319,7 +295,7 @@ class DesignData(object):
 
         return full_co_list
 
-    def get_endloop_co_list(self) -> list:
+    def _get_endloop_co_list(self) -> list:
         end_co_set = set()
         for co in self.all_co_tuples_list:
             for base in co:
@@ -333,7 +309,7 @@ class DesignData(object):
 
         return end_co_set
 
-    def get_half_co_list(self) -> list:
+    def _get_half_co_list(self) -> list:
         half_co_list = []
 
         for co in self.all_co_tuples_list:
@@ -342,10 +318,17 @@ class DesignData(object):
 
         return half_co_list
 
-    def get_n_co_types(self) -> int:
-        return len(self.full_co_list)/2., len(self.half_co_list), len(self.end_co_set)
+    # def get_n_co_types(self) -> int:
+    #    return len(self.full_co_list)/2., len(self.half_co_list), len(self.end_co_set)
 
     def get_n_scaf_staple_co_types(self):
+        """ dependes on: 
+                self.full_co_list,
+                 "half": self.half_co_list,
+                 "end": self.end_co_set,
+                  self.all_co_tuples_h:
+
+            """
         data = {"scaffold": dict(), "staple": dict()}
         types = {"full": self.full_co_list,
                  "half": self.half_co_list,
@@ -363,13 +346,18 @@ class DesignData(object):
                         co_subsets[strand]["-h"].add(co)
                     else:
                         co_subsets[strand]["-v"].add(co)
+
             for s, direction_sets in co_subsets.items():  # scaffold, staple
                 for dir in direction_sets:  # h, v
                     len_subset = len(co_subsets[s][dir])
                     n_co = len_subset/2 if typ == "full" else len_subset
                     data[s][typ + dir] = n_co
-        import ipdb
-        ipdb.set_trace()
+
+        for strand in ["scaffold", "staple"]:
+            data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
+            for typ in ["v", "h"]:
+                data[strand]["co-"+typ] = (data[strand]["half-" + typ]
+                                           + data[strand]["full-"+typ])
         return data
 
     def get_co_density(self):
@@ -397,99 +385,50 @@ class DesignData(object):
                 co_list = co_list[:-1]
             return n_ends, len(co_list)/2
 
+        possible_crossovers = {"scaffold": {"co": 0, "co-h": 0, "co-v": 0, "end": 0},
+                               "staple": {"co": 0, "co-h": 0, "co-v": 0, "end": 0}
+                               }
+        # part 1: number of possible crossovers
         helices = self.dna_structure.structure_helices_map.values()
-        n_possible_co_st_v = 0
-        n_possible_co_st_h = 0
-        n_possible_co_sc_v = 0
-        n_possible_co_sc_h = 0
-        n_possible_end_co_st_v = 0
-        n_possible_end_co_st_h = 0
-        n_possible_end_co_sc_v = 0
-        n_possible_end_co_sc_h = 0
 
         for helix in helices:
             helix_row = helix.lattice_row
-            stple_co_h = [co[1] for co in helix.possible_staple_crossovers
-                          if (is_ds(pos=co[1], hid=helix.id)
-                              and (helix_row == co[0].lattice_row)
-                              )
-                          ]
-            stple_co_h = sorted(stple_co_h)
-            n_end_st_h, n_co_st_h = cleanup_co(stple_co_h)
-            stple_co_v = [co[1] for co in helix.possible_staple_crossovers
-                          if (is_ds(pos=co[1], hid=helix.id)
-                              and (helix_row != co[0].lattice_row)
-                              )
-                          ]
-            stple_co_v = sorted(stple_co_v)
-            n_end_st_v, n_co_st_v = cleanup_co(stple_co_v)
 
-            scaf_co_h = [co[1] for co in helix.possible_scaffold_crossovers
-                         if (is_ds(pos=co[1], hid=helix.id)
-                             and (helix_row == co[0].lattice_row)
-                             )
-                         ]
-            scaf_co_h = sorted(scaf_co_h)
-            n_end_sc_h, n_co_sc_h = cleanup_co(scaf_co_h)
+            for strand in ["scaffold", "staple"]:
+                for typ in ["v", "h"]:
+                    if strand == "scaffold":
+                        p_co = helix.possible_scaffold_crossovers
+                    else:
+                        p_co = helix.possible_staple_crossovers
 
-            scaf_co_v = [co[1] for co in helix.possible_scaffold_crossovers
-                         if (is_ds(pos=co[1], hid=helix.id)
-                             and (helix_row != co[0].lattice_row)
-                             )
-                         ]
-            scaf_co_v = sorted(scaf_co_v)
-            n_end_sc_v, n_co_sc_v = cleanup_co(scaf_co_v)
+                    if typ == "h":
+                        x = [co[1] for co in p_co
+                             if (is_ds(pos=co[1], hid=helix.id)
+                                 and (helix_row == co[0].lattice_row)
+                                 )
+                             ]
+                    else:
+                        x = [co[1] for co in p_co
+                             if (is_ds(pos=co[1], hid=helix.id)
+                                 and (helix_row != co[0].lattice_row)
+                                 )
+                             ]
+                    end, co = cleanup_co(sorted(x))
+                    possible_crossovers[strand]["co"] += 0.5 * co
+                    possible_crossovers[strand]["co-" + typ] += 0.5 * co
+                    possible_crossovers[strand]["end"] += 0.5 * end
 
-            n_possible_co_st_v += (n_co_st_v)
-            n_possible_co_st_h += (n_co_st_h)
-            n_possible_end_co_st_v += n_end_st_v
-            n_possible_end_co_st_h += n_end_st_h
-            n_possible_co_sc_v += (n_co_sc_v)
-            n_possible_co_sc_h += (n_co_sc_h)
-            n_possible_end_co_sc_v += n_end_sc_v
-            n_possible_end_co_sc_h += n_end_sc_h
+        # part2 get actual crossovers
+        set_crossovers = self.get_n_scaf_staple_co_types()
 
-        n_possible_co_st_v = (n_possible_co_st_v)/2
-        n_possible_co_st_h = (n_possible_co_st_h)/2
-        n_possible_co_sc_v = (n_possible_co_sc_v)/2
-        n_possible_co_sc_h = (n_possible_co_sc_h)/2
+        co_density = dict()
+        for strand in ["scaffold", "staple"]:
+            co_density[strand] = dict()
+            for typ, n_possible in possible_crossovers[strand].items():
+                n_set = set_crossovers[strand][typ]
+                co_density[strand][typ] = n_set / n_possible
 
-        n_possible_end_co_st_v = (n_possible_end_co_st_v)/2
-        n_possible_end_co_st_h = (n_possible_end_co_st_h)/2
-        n_possible_end_co_sc_v = (n_possible_end_co_sc_v)/2
-        n_possible_end_co_sc_h = (n_possible_end_co_sc_h)/2
-
-        (full_scaf_co, full_staple_co, half_scaf_co,
-         half_staple_co, end_scaf_co, end_staple_co, st_half_co_h,
-         st_half_co_v, sc_full_co_h, sc_full_co_v, st_full_co_h,
-         st_full_co_v, sc_end_co_h, sc_end_co_v, st_end_co_h,
-         st_end_co_v) = self.get_n_scaf_staple_co_types()
-
-        scaf_co_density_v = (sc_full_co_v + half_scaf_co) / \
-            (n_possible_co_sc_v)
-        scaf_co_density_h = (sc_full_co_h + half_scaf_co) / \
-            (n_possible_co_sc_h)
-
-        st_co_density_v = (st_full_co_v + st_half_co_v) / (n_possible_co_st_v)
-        st_co_density_h = (st_full_co_h + st_half_co_h) / (n_possible_co_st_h)
-
-        all_co_density_v = ((sc_full_co_v + st_full_co_v + half_scaf_co +
-                             st_half_co_v + st_end_co_v + sc_end_co_v) /
-                            (n_possible_co_sc_v + n_possible_co_st_v +
-                             n_possible_end_co_sc_v + n_possible_end_co_st_v))
-
-        all_co_density_h = ((sc_full_co_h + st_full_co_h + half_scaf_co +
-                             st_half_co_h + st_end_co_h + sc_end_co_h) /
-                            (n_possible_co_sc_h + n_possible_co_st_h +
-                             n_possible_end_co_sc_h + n_possible_end_co_st_h))
-
-        all_co_density_no_ends_v = (sc_full_co_v + st_full_co_v + half_scaf_co +
-                                    st_half_co_v) / (n_possible_co_sc_v + n_possible_co_st_h)
-        all_co_density_no_ends_h = (sc_full_co_h + st_full_co_h + half_scaf_co +
-                                    st_half_co_h) / (n_possible_co_sc_h + n_possible_co_st_h)
-
-        return (scaf_co_density_v, scaf_co_density_h, st_co_density_v, st_co_density_h,
-                all_co_density_v, all_co_density_h, all_co_density_no_ends_v, all_co_density_no_ends_h)
+        return possible_crossovers, co_density
 
     def get_blunt_ends(self):
         blunt_ends = set()
@@ -518,45 +457,17 @@ def prep_data_for_export(data):
     # TODO: split lists and sets in statistics (avg, std, min, max)
     export = dict()
     for name, value in data.items():
-        if name == "co_types":
+        if name in ["co_set", "co_possible", "co_density"]:
             for strand_name, subtypes in value.items():
                 for typ, n_co in subtypes.items():
                     export["{}-{}-{}".format(name, strand_name, typ)] = n_co
 
-        elif name == "staple_length":
+        elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains"]:
             stats = get_statistics(value, name)
             for stat_name, stat in stats.items():
                 export[stat_name] = stat
-
-        elif name == "helices_staples_pass":
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-
-        elif name == "n_staple_domain":
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-
-        elif name == "long_domains":
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-
-        elif name == "staples_crossovers":
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-
-        elif name == "2_long_domains":
+        elif name in ["2_long_domains", "1_long_domains", "0_long_domains"]:
             export[name] = len(value)
-
-        elif name == "1_long_domains":
-            export[name] = len(value)
-
-        elif name == "0_long_domains":
-            export[name] = len(value)
-
         else:
             export[name] = value
 
