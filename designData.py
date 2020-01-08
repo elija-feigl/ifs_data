@@ -31,6 +31,7 @@ class DesignData(object):
         self.helices = self.get_structure_helices()
         self.nicks: list = self.get_nicks()
         self.long_domains = self.get_staples_with_long_domains()
+        self.blunt_ends = self.get_blunt_ends()
 
     def compute_data(self) -> dict:
         data = {}
@@ -51,8 +52,8 @@ class DesignData(object):
         data["co_set"] = self.get_n_scaf_staple_co_types()
         data["co_possible"], data["co_density"] = self.get_co_density()
 
-        # bluntends = self.get_blunt_ends()
-        # data["n_bluntends"] = len(bluntends)
+        data["n_blunt_ends"] = len(self.get_blunt_ends())
+
         self.data = data
         return self.data
 
@@ -433,16 +434,11 @@ class DesignData(object):
 
     def get_blunt_ends(self):
         blunt_ends = set()
-        blunt_end = set()
         for co in self.end_co_set:
             for base in co:
-                for co_s in self.all_co_tuples_list:
-                    for base_s in co_s:
-                        if not base_s.is_scaf:
-                            if (base.h == base_s.h) and (base.p == base_s.p):
-                                blunt_end.add(frozenset(co))
-                                blunt_end.add(frozenset(co_s))
-                                blunt_ends.add(frozenset(blunt_end))
+                if base.is_scaf:
+                    if (base.across in self.first_bases) or (base.across in self.last_bases):
+                        blunt_ends.add(co)
         return blunt_ends
 
 
