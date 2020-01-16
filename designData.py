@@ -12,7 +12,7 @@ class DesignData(object):
 
     def __init__(self, name: str):
         self.name: str = name
-        self.dna_structure = self.init_design()
+        self.dna_structure, self.dna_structure_skips = self.init_design()
         self.all_strands: list = self.dna_structure.strands
         self.all_staples: list = self.get_all_staple()
         self.data: dict = {}
@@ -64,7 +64,10 @@ class DesignData(object):
         converter = Converter(modify=True)
         converter.read_cadnano_file(file_name, None, "p8064")
         converter.dna_structure.compute_aux_data()
-        return converter.dna_structure
+        converter_skip = Converter(modify=False)
+        converter_skip.read_cadnano_file(file_name, None, "p8064")
+        converter_skip.dna_structure.compute_aux_data()
+        return converter.dna_structure, converter_skip.dna_structure
 
     def init_hps(self) -> dict:
         hps_base = {}
@@ -151,14 +154,30 @@ class DesignData(object):
 
     def divide_domain_lengths(self) -> dict:
         long_st_domain = []
+        domain_unpaired = []
 
-        data = {"2_long_domains": [],
-                "1_long_domains": [], "0_long_domains": []}
+        data = {
+            "2_long_domains": [],
+            "1_long_domains": [],
+            "0_long_domains": [],
+            "co_rule_violation": []
+        }
 
         for strand in self.all_staples:
             for domain in strand.domain_list:
                 if len(domain.base_list) >= 14:
                     long_st_domain.append(strand)
+            for domain in strand.domain_list:
+                for base in domain.base_list:
+                    if base.across == False:
+                        domain_unpaired.append(domain)
+                        break
+            for domian in strand.domain_list:
+                if not domain in domain_unpaired:
+                    if len(domian.base_list) < 4:
+                        data["co_rule_violation"].append(domain)
+
+#TODO###
             if len(long_st_domain) >= 2:
                 data["2_long_domains"].append(strand)
             elif len(long_st_domain) == 1:
@@ -463,7 +482,7 @@ def prep_data_for_export(data):
             stats = get_statistics(value, name)
             for stat_name, stat in stats.items():
                 export[stat_name] = stat
-        elif name in ["2_long_domains", "1_long_domains", "0_long_domains"]:
+        elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
             export[name] = len(value)
         else:
             export[name] = value
