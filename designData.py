@@ -387,7 +387,6 @@ class DesignData(object):
         data = {"del_density": 0,
                 "ins_density": 0}
         base_ins = 0
-        base_del = set()
         for strand in self.dna_structure_skips.strands:
             for base in strand.tour:
                 if base.num_insertions == -1:
