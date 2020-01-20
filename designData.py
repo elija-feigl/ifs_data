@@ -52,6 +52,8 @@ class DesignData(object):
         data["co_set"] = self.get_n_scaf_staple_co_types()
         data["co_possible"], data["co_density"] = self.get_co_density()
 
+        data.update(self.get_insertion_deletion_density())
+
         data["n_blunt_ends"] = len(self.get_blunt_ends())
 
         self.data = data
@@ -379,6 +381,22 @@ class DesignData(object):
             for typ in ["v", "h"]:
                 data[strand]["co-"+typ] = (data[strand]["half-" + typ]
                                            + data[strand]["full-"+typ])
+        return data
+
+    def get_insertion_deletion_density(self):
+        data = {"del_density": 0,
+                "ins_density": 0}
+        base_ins = 0
+        base_del = set()
+        for strand in self.dna_structure_skips.strands:
+            for base in strand.tour:
+                if base.num_insertions == -1:
+                    base_ins += 1
+
+        data["del_density"] = len(
+            self.dna_structure.Dhp_skips) / len(self.all_bases)
+        data["ins_density"] = base_ins / len(self.all_bases)
+
         return data
 
     def get_co_density(self):
