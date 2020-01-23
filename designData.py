@@ -171,13 +171,9 @@ class DesignData(object):
                     long_st_domain.append(strand)
             for domain in strand.domain_list:
                 for base in domain.base_list:
-                    if base.across == False:
+                    if base.across == None:
                         domain_unpaired.append(domain)
                         break
-            for domian in strand.domain_list:
-                if not domain in domain_unpaired:
-                    if len(domian.base_list) < 4:
-                        data["co_rule_violation"].append(domain)
 
 #TODO###
             if len(long_st_domain) >= 2:
@@ -187,6 +183,12 @@ class DesignData(object):
             elif len(long_st_domain) == 0:
                 data["0_long_domains"].append(strand)
             long_st_domain = []
+
+        for strand in self.all_staples:
+            for domain in strand.domain_list:
+                if not domain in domain_unpaired:
+                    if len(domain.base_list) < 5:
+                        data["co_rule_violation"].append(domain)
 
         return data
 
@@ -345,7 +347,7 @@ class DesignData(object):
     #    return len(self.full_co_list)/2., len(self.half_co_list), len(self.end_co_set)
 
     def get_n_scaf_staple_co_types(self):
-        """ dependes on: 
+        """ dependes on:
                 self.full_co_list,
                  "half": self.half_co_list,
                  "end": self.end_co_set,
