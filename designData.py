@@ -287,10 +287,10 @@ class DesignData(object):
         return all_co_tuples_h, all_co_tuples_v
 
     def _get_full_co_list(self) -> list:
-        """[summary]
+        """[getting full_co as individuals not a pack of coupled crossovers representing a full_co ]
 
         Returns:
-            list -- [description]
+            list -- [crossovers as a frozensets of two bases representing a co which is a member of a full_co. they are not packed as coupled crossovers to show a complete representation of full_co]
         """
         co_plus_tuples = []
         co_minus_tuples = []
@@ -399,6 +399,9 @@ class DesignData(object):
         data["ins_density"] = base_ins / len(self.all_bases)
 
         return data
+
+    def get_stacks(self):
+        return
 
     def get_co_density(self):
         def is_ds(pos, hid):
