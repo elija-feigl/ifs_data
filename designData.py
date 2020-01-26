@@ -22,7 +22,7 @@ class DesignData(object):
         # crossover
         self.all_co_tuples_list: list = self._get_all_co_tuple()
         self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
-        self.full_co_list = self._get_full_co_list()
+        self.full_co_list_seperate, self.full_co_list_packed = self._get_full_co_list()
         self.end_co_set = self._get_endloop_co_list()
         self.half_co_list = self._get_half_co_list()
 
@@ -287,15 +287,16 @@ class DesignData(object):
         return all_co_tuples_h, all_co_tuples_v
 
     def _get_full_co_list(self) -> list:
-        """[getting full_co as individuals not a pack of coupled crossovers representing a full_co ]
+        """[gets the full crossovers]
 
         Returns:
-            list -- [crossovers as a frozensets of two bases representing a co which is a member of a full_co. they are not packed as coupled crossovers to show a complete representation of full_co]
+            list -- [full_co_list_packed: get full co as a pack of two crossover
+                     full_co_list_seperate: also seperately as individual crossovers]
         """
         co_plus_tuples = []
         co_minus_tuples = []
         full_co_list = []
-
+        fullco = set()
         for co in self.all_co_tuples_list:
             co_tuple_plus = set()
             co_tuple_minus = set()
@@ -310,15 +311,40 @@ class DesignData(object):
             co_minus_tuples.append(frozenset(co_tuple_minus))
 
             if co_plus_tuples[0] in self.all_co_tuples_list:
-                full_co_list.append(co)
-
+                fullco.add(co)
+                fullco.add(co_plus_tuples[0])
+                full_co_list.append(frozenset(fullco))
+                fullco = set()
             elif co_minus_tuples[0] in self.all_co_tuples_list:
-                full_co_list.append(co)
+                fullco.add(co)
+                fullco.add(co_minus_tuples[0])
+                full_co_list.append(frozenset(fullco))
+                fullco = set()
 
             co_plus_tuples = []
             co_minus_tuples = []
 
-        return full_co_list
+        # putting all full_co in a list configuration as [Co[B,B],Co[B,B]]
+
+        fullss = set(full_co_list)
+        full_co_list_seperate = []
+        for full in fullss:
+            for co in full:
+                full_co_list_seperate.append(co)
+
+        bases = []
+        cos = []
+        full_co_list_packed = []
+        for full_co in fullss:
+            for co in full_co:
+                for base in co:
+                    bases.append(base)
+                coss.append(bases)
+                bases = []
+            full_co_list_packed.append(cos)
+            coss = []
+
+        return full_co_list_seperate, full_co_list_packed
 
     def _get_endloop_co_list(self) -> list:
         end_co_set = set()
@@ -338,7 +364,7 @@ class DesignData(object):
         half_co_list = []
 
         for co in self.all_co_tuples_list:
-            if (co not in self.end_co_set) and (co not in self.full_co_list):
+            if (co not in self.end_co_set) and (co not in self.full_co_list_seperate):
                 half_co_list.append(co)
 
         return half_co_list
@@ -355,7 +381,7 @@ class DesignData(object):
 
             """
         data = {"scaffold": dict(), "staple": dict()}
-        types = {"full": self.full_co_list,
+        types = {"full": self.full_co_list_seperate,
                  "half": self.half_co_list,
                  "end": self.end_co_set,
                  }
