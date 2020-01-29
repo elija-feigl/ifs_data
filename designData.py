@@ -22,13 +22,13 @@ class DesignData(object):
         # crossover
         self.all_co_tuples_list: list = self._get_all_co_tuple()
         self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
-        self.full_co_list_seperate, self.full_co_list_packed = self._get_full_co_list()
+        self.full_co_list_seperate, self.full_co_list_packed, self.full_co_set = self._get_full_co_list()
         self.end_co_set = self._get_endloop_co_list()
         self.half_co_list = self._get_half_co_list()
 
         self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
-        self.helices = self.get_structure_helices()
+        self.helices = self.dna_structure.structure_helices_map
         self.nicks: list = self.get_nicks()
         self.long_domains = self.get_staples_with_long_domains()
         self.blunt_ends = self.get_blunt_ends()
@@ -37,7 +37,7 @@ class DesignData(object):
         data = {}
 
         data["Lattice type"] = self.get_lattice_type()
-        data["n_helices"] = len(self.get_structure_helices())
+        data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
         # domains
@@ -51,6 +51,7 @@ class DesignData(object):
         # crossovers
         data["co_set"] = self.get_n_scaf_staple_co_types()
         data["co_possible"], data["co_density"] = self.get_co_density()
+        data["n_stacks"] = self.get_stacks()
 
         data.update(self.get_insertion_deletion_density())
 
@@ -108,17 +109,6 @@ class DesignData(object):
     def get_structure_size(self):
         # TODO:...
         return
-
-    def get_structure_helices(self) -> int:
-        helices = set()
-        for strand in self.all_strands:
-            if strand.is_scaffold:
-                for base in strand.tour:
-                    if self.dna_structure._check_base_crossover(base):
-                        if base.h not in helices:
-                            helices.add(base.h)
-        # ipdb.set_trace()
-        return helices
 
     def get_n_skips(self) -> int:
         return len(self.dna_structure.Dhp_skips)
@@ -290,8 +280,9 @@ class DesignData(object):
         """[gets the full crossovers]
 
         Returns:
-            list -- [full_co_list_packed: get full co as a pack of two crossover
-                     full_co_list_seperate: also seperately as individual crossovers]
+
+            list -- [full_co_list_packed: get full co as a pack of two crossover (representation: [Co[B,B],Co[B,B], all in lists)
+                     full_co_list_seperate: also seperately as individual crossovers (every Co in frozenset of two bases)]
         """
         co_plus_tuples = []
         co_minus_tuples = []
@@ -326,25 +317,25 @@ class DesignData(object):
 
         # putting all full_co in a list configuration as [Co[B,B],Co[B,B]]
 
-        fullss = set(full_co_list)
+        full_co_set = set(full_co_list)
         full_co_list_seperate = []
-        for full in fullss:
+        for full in full_co_set:
             for co in full:
                 full_co_list_seperate.append(co)
 
         bases = []
         cos = []
         full_co_list_packed = []
-        for full_co in fullss:
+        for full_co in full_co_set:
             for co in full_co:
                 for base in co:
                     bases.append(base)
-                coss.append(bases)
+                cos.append(bases)
                 bases = []
             full_co_list_packed.append(cos)
-            coss = []
+            cos = []
 
-        return full_co_list_seperate, full_co_list_packed
+        return full_co_list_seperate, full_co_list_packed, full_co_set
 
     def _get_endloop_co_list(self) -> list:
         end_co_set = set()
@@ -427,7 +418,26 @@ class DesignData(object):
         return data
 
     def get_stacks(self):
-        return
+
+        stacks = set()
+
+        same_pos = set()
+        dummy = set()
+        full_co_tuples = []
+        for full in self.full_co_list_packed:
+            full_co_tuples.append(tuple(co) for co in full)
+        set(tuple(full) for full in self.full_co_list_packed)
+        for full in self.full_co_list_packed:
+            for full_1 in self.full_co_list_packed:
+                if (np.abs(full[0][0].p - full_1[0][0].p) <= 1) and (full != full_1):
+                    dummy.add(frozenset(full_1))
+            if len(dummy) >= 1:
+                dummy.add(frozenset(full))
+
+            same_pos.set(frozenset(dummy))
+            dummy = set()
+
+        return 1
 
     def get_co_density(self):
         def is_ds(pos, hid):
