@@ -324,7 +324,7 @@ class DesignData(object):
             co_plus_tuples = []
             co_minus_tuples = []
 
-        # putting all full_co in a list configuration as [Co[B,B],Co[B,B]]
+        # putting all full_co in a list configuration as [(Co(B,B),Co(B,B))] two parallel Co in a tuple and two bases also in a tuple
 
         fullss = set(full_co_list)
         full_co_list_seperate = []
@@ -332,17 +332,12 @@ class DesignData(object):
             for co in full:
                 full_co_list_seperate.append(co)
 
-        bases = []
-        cos = []
         full_co_list_packed = []
+        full_co_tuple = []
         for full_co in fullss:
             for co in full_co:
-                for base in co:
-                    bases.append(base)
-                coss.append(bases)
-                bases = []
-            full_co_list_packed.append(cos)
-            coss = []
+                full_co_tuple.append(tuple(co))
+            full_co_list_packed.append(tuple(full_co_tuple))
 
         return full_co_list_seperate, full_co_list_packed
 
