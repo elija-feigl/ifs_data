@@ -325,7 +325,7 @@ class DesignData(object):
 
         full_co_list_packed = []
         full_co_tuple = []
-        for full_co in fullss:
+        for full_co in full_co_set:
             for co in full_co:
                 full_co_tuple.append(tuple(co))
             full_co_list_packed.append(tuple(full_co_tuple))
