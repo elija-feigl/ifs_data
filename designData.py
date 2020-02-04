@@ -6,6 +6,8 @@ import re
 import sys
 import os
 import ipdb
+from pathlib import Path
+import matplotlib.pyplot as plt
 
 
 class DesignData(object):
@@ -51,7 +53,7 @@ class DesignData(object):
         # crossovers
         data["co_set"] = self.get_n_scaf_staple_co_types()
         data["co_possible"], data["co_density"] = self.get_co_density()
-        data["n_stacks"] = self.get_stacks()
+        _, data["n_stacks"] = self.get_stacks()
 
         data.update(self.get_insertion_deletion_density())
 
@@ -329,6 +331,21 @@ class DesignData(object):
             for co in full_co:
                 full_co_tuple.append(tuple(co))
             full_co_list_packed.append(tuple(full_co_tuple))
+            full_co_tuple = []
+
+        for f in full_co_list_packed:
+            for co in f:
+                for base in co:
+                    if base.h == 12 and base.p == 112:
+                        b = tuple(f)
+        dummy = []
+        dummy_m = []
+        for full in full_co_list_packed:
+            for co in full:
+                for base in co:
+                    dummy.append(base)
+            dummy_m.append(dummy)
+            dummy = []
 
         return full_co_list_seperate, full_co_list_packed, full_co_set
 
@@ -413,26 +430,92 @@ class DesignData(object):
         return data
 
     def get_stacks(self):
+        """[get the list of all stacks in the structure]
 
-        stacks = set()
+        return  [stacks: a list of stacks
+                n_stacks: a list of length of each stack ]
+        """
 
-        same_pos = set()
-        dummy = set()
-        full_co_tuples = []
-        for full in self.full_co_list_packed:
-            full_co_tuples.append(tuple(co) for co in full)
-        set(tuple(full) for full in self.full_co_list_packed)
-        for full in self.full_co_list_packed:
-            for full_1 in self.full_co_list_packed:
-                if (np.abs(full[0][0].p - full_1[0][0].p) <= 1) and (full != full_1):
-                    dummy.add(frozenset(full_1))
-            if len(dummy) >= 1:
-                dummy.add(frozenset(full))
+        stacks = []
+        added = []
+        J = 0
+        K = 0
 
-            same_pos.set(frozenset(dummy))
-            dummy = set()
+        full_packed_co = []
+        same_pos = []
+        dummy = []
+        full_packed_co.extend(self.full_co_list_packed)
+        for f in full_packed_co:
+            added.append(False)
 
-        return 1
+        for full in full_packed_co:
+            if added[J] == False:
+                K = 0
+                for full_1 in full_packed_co:
+                    if (full != full_1) and (added[K] == False) and (np.abs(full[0][0].p - full_1[0][0].p) <= 3):
+                        dummy.append(full_1)
+                        added[K] = True
+                    K = K + 1
+                if len(dummy) >= 1:
+                    dummy.append(full)
+                    added[J] = True
+                #dummy = tuple(dummy)
+                same_pos.append(dummy)
+                dummy = []
+            J = J + 1
+
+        def common(lst1, lst2):
+            return list(set(lst1) & set(lst2))
+
+        def checker(full, group):
+            h = []
+            h_1 = []
+            dummy = []
+
+            for co in full:
+                for base in co:
+                    if not base.h in h:
+                        h.append(base.h)
+
+                for full_1 in group:
+                    for co in full_1:
+                        for base in co:
+                            if not base.h in h_1:
+                                h_1.append(base.h)
+
+                    if len(common(h, h_1)) == 1:
+                        if not full_1 in dummy:
+                            dummy.append(full_1)
+                            group.remove(full_1)
+                    h_1 = []
+            h = []
+
+            return dummy
+
+        dummy = []
+        for group in same_pos:
+            for f in group:
+                dummy.extend(checker(f, group))
+                if len(dummy) >= 1:
+                    pass
+                else:
+                    group.remove(f)
+                    continue
+
+                n = 0
+                while n < len(group):
+                    for ff in dummy:
+                        dummy.extend(checker(ff, group))
+                    n = n+1
+                n = 0
+                stacks.append(dummy)
+                dummy = []
+
+        n_stacks = []
+        for stack in stacks:
+            n_stacks.append(len(stack))
+
+        return stacks, n_stacks
 
     def get_co_density(self):
         def is_ds(pos, hid):
@@ -515,7 +598,17 @@ class DesignData(object):
 
 
 def get_statistics(data_list, data_name):
-    return {data_name + "_avg": np.average(data_list),
+    """[summary]
+
+    Arguments:
+        data_list {[type]} -- [description]
+        data_name {[type]} -- [description]
+
+    Returns:
+        [type] -- [description]
+    """
+    return {data_name + "_num": len(data_list),
+            data_name + "_avg": np.average(data_list),
             data_name + "_std": np.std(data_list),
             data_name + "_max": np.max(data_list),
             data_name + "_min": np.min(data_list),
@@ -531,7 +624,7 @@ def prep_data_for_export(data):
                 for typ, n_co in subtypes.items():
                     export["{}-{}-{}".format(name, strand_name, typ)] = n_co
 
-        elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains"]:
+        elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks"]:
             stats = get_statistics(value, name)
             for stat_name, stat in stats.items():
                 export[stat_name] = stat
@@ -561,14 +654,15 @@ def export_data(data: dict, name: str) -> None:
 
 
 def main():
-    # file  = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
-    # for line in file:
-      #  if line.startswith('Project ='):
-     #       name = line[9:-1].strip()
-    #        break
-    print("master, I am awaiting the name of your design")
-    name = input()
-    print("Thank you Sir")
+    file = open(
+        Path("./txt_file.txt"), 'rt', encoding="utf8")
+    for line in file:
+        if line.startswith('Project ='):
+            name = line[9:-1].strip()
+            break
+    # print("master, I am awaiting the name of your design")
+    # name = input()
+    # print("Thank you Sir")
     designData = DesignData(name=name)
     data = designData.compute_data()
     export_data(data=data, name=name)
