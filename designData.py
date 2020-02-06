@@ -440,6 +440,7 @@ class DesignData(object):
         added = []
         J = 0
         K = 0
+        checked = []
 
         full_packed_co = []
         same_pos = []
@@ -459,7 +460,7 @@ class DesignData(object):
                 if len(dummy) >= 1:
                     dummy.append(full)
                     added[J] = True
-                #dummy = tuple(dummy)
+                # dummy = tuple(dummy)
                 same_pos.append(dummy)
                 dummy = []
             J = J + 1
@@ -467,7 +468,7 @@ class DesignData(object):
         def common(lst1, lst2):
             return list(set(lst1) & set(lst2))
 
-        def checker(full, group):
+        def checker(full, group, dummy):
             h = []
             h_1 = []
             dummy = []
@@ -486,7 +487,12 @@ class DesignData(object):
                     if len(common(h, h_1)) == 1:
                         if not full_1 in dummy:
                             dummy.append(full_1)
-                            group.remove(full_1)
+                        else:
+                            pass
+                        if not full in dummy:
+                            dummy.append(full)
+                        else:
+                            pass
                     h_1 = []
             h = []
 
@@ -495,21 +501,28 @@ class DesignData(object):
         dummy = []
         for group in same_pos:
             for f in group:
-                dummy.extend(checker(f, group))
-                if len(dummy) >= 1:
-                    pass
-                else:
-                    group.remove(f)
-                    continue
+                if not f in checked:
+                    dummy.extend(checker(f, group, dummy))
+                    if len(dummy) >= 1:
+                        checked.append(f)
+                        pass
+                    else:
+                        checked.append(f)
+                        continue
 
-                n = 0
-                while n < len(group):
-                    for ff in dummy:
-                        dummy.extend(checker(ff, group))
-                    n = n+1
-                n = 0
-                stacks.append(dummy)
-                dummy = []
+                    n = 0
+                    while n < len(group):
+                        for ff in dummy:
+                            if not ff in checked:
+                                dummy.extend(checker(ff, group, dummy))
+                                checked.append(ff)
+                        n = n+1
+                    n = 0
+                    if len(dummy) >= 1:
+                        dummy = tuple(set(tuple(dummy)))
+                        stacks.append(dummy)
+                    dummy = []
+                checked = []
 
         n_stacks = []
         for stack in stacks:
