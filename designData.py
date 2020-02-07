@@ -335,11 +335,6 @@ class DesignData(object):
             full_co_list_packed.append(tuple(full_co_tuple))
             full_co_tuple = []
 
-        for f in full_co_list_packed:
-            for co in f:
-                for base in co:
-                    if base.h == 12 and base.p == 112:
-                        b = tuple(f)
         dummy = []
         dummy_m = []
         for full in full_co_list_packed:
