@@ -440,7 +440,6 @@ class DesignData(object):
         added = []
         J = 0
         K = 0
-        checked = []
 
         full_packed_co = []
         same_pos = []
@@ -493,36 +492,42 @@ class DesignData(object):
                             dummy.append(full)
                         else:
                             pass
+
                     h_1 = []
             h = []
 
             return dummy
 
         dummy = []
+        checked = set()
+
         for group in same_pos:
             for f in group:
                 if not f in checked:
                     dummy.extend(checker(f, group, dummy))
+                    checked.add(f)
+
                     if len(dummy) >= 1:
-                        checked.append(f)
-                        pass
+                        n = 0
+                        while n < len(group):
+                            for ff in dummy:
+                                if not ff in checked:
+                                    dummy.extend(checker(ff, group, dummy))
+                                    checked.add(ff)
+                            n = n+1
+                        n = 0
+
+                        dummy = tuple(set(tuple(dummy)))
+                        if not dummy in stacks:
+                            stacks.append(dummy)
+
+                        dummy = []
+
                     else:
-                        checked.append(f)
+                        checked.add(f)
                         continue
 
-                    n = 0
-                    while n < len(group):
-                        for ff in dummy:
-                            if not ff in checked:
-                                dummy.extend(checker(ff, group, dummy))
-                                checked.append(ff)
-                        n = n+1
-                    n = 0
-                    if len(dummy) >= 1:
-                        dummy = tuple(set(tuple(dummy)))
-                        stacks.append(dummy)
-                    dummy = []
-                checked = []
+            checked = set()
 
         n_stacks = []
         for stack in stacks:
@@ -541,7 +546,7 @@ class DesignData(object):
         def cleanup_co(co_list):
             n_ends = 0
             if not co_list:
-                return 0, 0
+                return 0,
             if len(co_list) == 1:
                 return 1, 0
             if len(co_list) == 2 and co_list[0] != co_list[1]:
