@@ -27,6 +27,7 @@ class DesignData(object):
         self.full_co_list_seperate, self.full_co_list_packed, self.full_co_set = self._get_full_co_list()
         self.end_co_set = self._get_endloop_co_list()
         self.half_co_list = self._get_half_co_list()
+        self.stacks = self.get_stacks()
 
         self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
@@ -53,7 +54,8 @@ class DesignData(object):
         # crossovers
         data["co_set"] = self.get_n_scaf_staple_co_types()
         data["co_possible"], data["co_density"] = self.get_co_density()
-        _, data["n_stacks"] = self.get_stacks()
+        data["stacks"] = len(self.get_stacks())
+        data["n_stacks"] = self.get_n_stacks()
 
         data.update(self.get_insertion_deletion_density())
 
@@ -529,11 +531,13 @@ class DesignData(object):
 
             checked = set()
 
-        n_stacks = []
-        for stack in stacks:
-            n_stacks.append(len(stack))
+        return stacks
 
-        return stacks, n_stacks
+    def get_n_stacks(self):
+        n_stacks = []
+        for stack in self.stacks:
+            n_stacks.append(len(stack))
+        return n_stacks
 
     def get_co_density(self):
         def is_ds(pos, hid):
@@ -625,8 +629,7 @@ def get_statistics(data_list, data_name):
     Returns:
         [type] -- [description]
     """
-    return {data_name + "_num": len(data_list),
-            data_name + "_avg": np.average(data_list),
+    return {data_name + "_avg": np.average(data_list),
             data_name + "_std": np.std(data_list),
             data_name + "_max": np.max(data_list),
             data_name + "_min": np.min(data_list),
