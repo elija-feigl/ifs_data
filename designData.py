@@ -84,6 +84,18 @@ class DesignData(object):
                 hps_base[position] = base
         return hps_base
 
+    def _close_strand(self, strand):
+        """[closes the scaffold andmaking it a loop]
+
+        Returns:
+            [strand] -- [description]
+        """
+        start = strand.tour[0]
+        end = strand.tour[-1]
+        start.up, end.down = end, start
+        self.dna_structure.strands[start.strand].is_circular = True
+        return strand
+
     def get_base_from_hps(self, h, p, is_scaffold, dir=1):
         if (h, p) in self.dna_structure.Dhp_skips:
             p += np.sign(dir)
@@ -243,6 +255,12 @@ class DesignData(object):
     def _get_all_co_tuple(self) -> list:
         all_co_tuples = set()
         all_co_tuple_list = []
+        for strand in self.all_strands:
+            if strand.is_scaffold:
+                self.all_strands.remove(strand)
+                strand = self._close_strand(strand)
+                self.all_strands.append(strand)
+
         for strand in self.all_strands:
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
