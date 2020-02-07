@@ -593,9 +593,9 @@ class DesignData(object):
                                  )
                              ]
                     end, co = cleanup_co(sorted(x))
-                    possible_crossovers[strand]["co"] += 0.5 * co
-                    possible_crossovers[strand]["co-" + typ] += 0.5 * co
-                    possible_crossovers[strand]["end"] += 0.5 * end
+                    possible_crossovers[strand]["co"] += co
+                    possible_crossovers[strand]["co-" + typ] += co
+                    possible_crossovers[strand]["end"] += end
 
         # part2 get actual crossovers
         set_crossovers = self.get_n_scaf_staple_co_types()
