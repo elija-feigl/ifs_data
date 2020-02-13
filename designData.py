@@ -30,7 +30,7 @@ class DesignData(object):
         self.stacks = self.get_stacks()
 
         self.st_helix_dict: dict = self.init_helix_dict()
-        self.first_bases, self.last_bases = self.get_first_last_bases_of_strands()
+        self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.helices = self.dna_structure.structure_helices_map
         self.nicks: list = self.get_nicks()
         self.long_domains = self.get_staples_with_long_domains()
@@ -38,7 +38,7 @@ class DesignData(object):
 
     def compute_data(self) -> dict:
         data = {}
-
+        data["name"] = self.name
         data["Lattice type"] = self.get_lattice_type()
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
@@ -227,7 +227,7 @@ class DesignData(object):
 
         return st_helix_dict
 
-    def get_first_last_bases_of_strands(self) -> list:
+    def _get_first_last_bases_of_strands(self) -> list:
         first_bases = set()
         last_bases = set()
         for strand in self.all_strands:
@@ -563,7 +563,7 @@ class DesignData(object):
         def cleanup_co(co_list):
             n_ends = 0
             if not co_list:
-                return 0,
+                return 0, 0
             if len(co_list) == 1:
                 return 1, 0
             if len(co_list) == 2 and co_list[0] != co_list[1]:
@@ -670,6 +670,7 @@ def prep_data_for_export(data):
     return export
 
 
+"""
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
@@ -681,16 +682,16 @@ def export_data(data: dict, name: str) -> None:
     except FileExistsError:
         pass
     with open("./out/" + name + "-designdata.csv", mode="w+") as out:
+
         out.write(header + "\n")
-        out.write(export_str)
-        out.write("\nEND")
+        out.write(export_str + "\n")
+        # out.write("\nEND")
     return
 
 
 def main():
-    file = open(
-        Path("./txt_file.txt"), 'rt', encoding="utf8")
-    for line in file:
+    f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
+    for line in f:
         if line.startswith('Project ='):
             name = line[9:-1].strip()
             break
@@ -705,3 +706,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
