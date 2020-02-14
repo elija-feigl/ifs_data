@@ -5,14 +5,14 @@ import numpy as np
 import re
 import sys
 import os
-import ipdb
 from pathlib import Path
 import matplotlib.pyplot as plt
 
 
 class DesignData(object):
 
-    def __init__(self, name: str):
+    def __init__(self, json: str, name: str):
+        self.json: str = json
         self.name: str = name
         self.dna_structure, self.dna_structure_skips = self.init_design()
         self.all_strands: list = self.dna_structure.strands
@@ -65,14 +65,13 @@ class DesignData(object):
         return self.data
 
     def init_design(self):
-        file_name = "./DesignStructures/" + self.name + ".json"
-        seq_file = self.name + ".seq"
+        # seq_file = self.name + ".seq"
         seq_name = None
         converter = Converter(modify=True)
-        converter.read_cadnano_file(file_name, None, "p8064")
+        converter.read_cadnano_file(self.json, None, seq_name)
         converter.dna_structure.compute_aux_data()
         converter_skip = Converter(modify=False)
-        converter_skip.read_cadnano_file(file_name, None, "p8064")
+        converter_skip.read_cadnano_file(self.json, None, seq_name)
         converter_skip.dna_structure.compute_aux_data()
         return converter.dna_structure, converter_skip.dna_structure
 
