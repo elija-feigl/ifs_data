@@ -1,5 +1,5 @@
 import os
-import csv
+import glob
 import designData
 from pathlib import Path
 
@@ -11,44 +11,51 @@ def export_data(data: dict, name: str) -> None:
     export_str = ", ".join([str(i) for i in export.values()])
 
     try:
-        os.mkdir("/home/kourosh/Documents/designdata/outcome")
-    except FileExistsError:
-        pass
-
-    try:
-        with open("./outcome/" + "-designdata.csv", mode="r+") as out:
+        with open("./database/designdata.csv", mode="r+") as out:
             if header == out.readline(0):
                 pass
     except FileNotFoundError:
-        with open("./outcome/" + "-designdata.csv", mode="w+") as out:
+        with open("./database/designdata.csv", mode="w+") as out:
             out.write(header + "\n")
 
-    with open("./outcome/" + "-designdata.csv", mode="a") as out:
+    with open("./database/designdata.csv", mode="a") as out:
         out.write(export_str + "\n")
         # out.write("\nEND")
     return
 
 
 def main():
-    folders = Path("Data/")
-    i = 0
+
+    try:
+        os.mkdir("./database")
+    except FileExistsError:
+        pass
+
+    folders = Path("./")
     for folder in folders.iterdir():
-        for files in folder.iterdir():
-            if files.suffix == ".txt":
-                with open(files, 'r', encoding="utf8") as f:
-
-                    for line in f:
-                        if line.startswith('Project ='):
-                            name = line[9:-1].strip()
-                            break
-
-    # print("master, I am awaiting the name of your design")
-    # name = input()
-    # print("Thank you Sir")
-
-                    designdata = designData.DesignData(name=name)
-                    data = designdata.compute_data()
-                    export_data(data=data, name=name)
+        #import ipdb; ipdb.set_trace()
+        folder_content = glob.glob(folder.name + "/*.txt")
+        if folder_content:
+            with open(folder_content[0], 'r', encoding="utf8") as gel_info:
+                 
+                jsons = glob.glob(folder.name + "/*.json")
+                if jsons:
+                    json = jsons[0]
+                    for line in gel_info:
+                        if line.startswith("Design_name ="):
+                            try:
+                                name = line[13:-1].strip()
+                                designdata = designData.DesignData(
+                                    json=json, name=name
+                                )
+                                data = designdata.compute_data()
+                                export_data(data=data, name=name)
+                            except BaseException:
+                                print("issue with ", json, "of design ", name)
+               else:
+                   print("it was probably floris who forgot to upload a designfile... ")
+        else:
+            print("issue in folder:", folder.name)
 
     return
 
