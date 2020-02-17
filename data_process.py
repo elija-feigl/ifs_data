@@ -2,6 +2,15 @@ import os
 import glob
 import designData
 from pathlib import Path
+import logging
+
+
+FOLDER_EXCEPTION = [
+    "Foldingscreen_analysis-master", "AAA_TEMPLATE",
+    "ZZZ_output", "ZZZfolder_of_shame_aka_missing_data",
+    "ZZZnon_standard_folding_screens", "Icon", ".DS_Store",
+    "JF_MP_ExcessFiles"
+]
 
 
 def export_data(data: dict, name: str) -> None:
@@ -26,21 +35,29 @@ def export_data(data: dict, name: str) -> None:
 
 def main():
 
+    logging.basicConfig()
+    handle = "folding-DB"
+    logger = logging.getLogger(handle)
+
+
+    outputname = "database"
     try:
-        os.mkdir("./database")
+        os.mkdir("./" + outputname)
     except FileExistsError:
         pass
 
     folders = Path("./")
     for folder in folders.iterdir():
-        #import ipdb; ipdb.set_trace()
+        if folder.name in FOLDER_EXCEPTION + [outputname]:
+            continue
         folder_content = glob.glob(folder.name + "/*.txt")
         if folder_content:
             with open(folder_content[0], 'r', encoding="utf8") as gel_info:
-                 
+
                 jsons = glob.glob(folder.name + "/*.json")
                 if jsons:
                     json = jsons[0]
+
                     for line in gel_info:
                         if line.startswith("Design_name ="):
                             try:
@@ -48,14 +65,22 @@ def main():
                                 designdata = designData.DesignData(
                                     json=json, name=name
                                 )
+                            except Exception as e:
+                                e_ = "nanodesign:  {} | Error: {}".format(name, e)
+                                logger.error(e_)
+                            try:
                                 data = designdata.compute_data()
                                 export_data(data=data, name=name)
-                            except BaseException:
-                                print("issue with ", json, "of design ", name)
-               else:
-                   print("it was probably floris who forgot to upload a designfile... ")
+                            except Exception as e:
+                                e_ = "stats:       {} | Error: {}".format(name, e)
+                                logger.error(e_)
+
+                else:
+                    e_ = "json missing:   | Folder: {}".format(folder.name)
+                    logger.warning(e_)
         else:
-            print("issue in folder:", folder.name)
+            e_ = "???  :          | Folder: {}".format(folder.name)
+            logger.warning(e_)
 
     return
 

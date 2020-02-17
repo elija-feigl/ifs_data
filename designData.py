@@ -67,10 +67,10 @@ class DesignData(object):
     def init_design(self):
         # seq_file = self.name + ".seq"
         seq_name = None
-        converter = Converter(modify=True)
+        converter = Converter(modify=True, logg=False)
         converter.read_cadnano_file(self.json, None, seq_name)
         converter.dna_structure.compute_aux_data()
-        converter_skip = Converter(modify=False)
+        converter_skip = Converter(modify=False, logg=False)
         converter_skip.read_cadnano_file(self.json, None, seq_name)
         converter_skip.dna_structure.compute_aux_data()
         return converter.dna_structure, converter_skip.dna_structure
