@@ -25,7 +25,7 @@ class DesignData(object):
         self.all_co_tuples_list: list = self._get_all_co_tuple()
         self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
         self.full_co_list_seperate, self.full_co_list_packed, self.full_co_set = self._get_full_co_list()
-        self.end_co_set = self._get_endloop_co_list()
+        self.end_co_list = self._get_endloop_co_list()
         self.half_co_list = self._get_half_co_list()
         self.stacks = self.get_stacks()
 
@@ -364,6 +364,7 @@ class DesignData(object):
         return full_co_list_seperate, full_co_list_packed, full_co_set
 
     def _get_endloop_co_list(self) -> list:
+        end_co_list = []
         end_co_set = set()
         for co in self.all_co_tuples_list:
             for base in co:
@@ -374,20 +375,20 @@ class DesignData(object):
 
                 if (base_plus is None) or (base_minus is None):
                     end_co_set.add(co)
+        for co in end_co_set:
+            co = tuple(co)
+            end_co_list.append(co)
 
-        return end_co_set
+        return end_co_list
 
     def _get_half_co_list(self) -> list:
         half_co_list = []
 
         for co in self.all_co_tuples_list:
-            if (co not in self.end_co_set) and (co not in self.full_co_list_seperate):
+            if (co not in self.end_co_list) and (co not in self.full_co_list_seperate):
                 half_co_list.append(co)
 
         return half_co_list
-
-    # def get_n_co_types(self) -> int:
-    #    return len(self.full_co_list)/2., len(self.half_co_list), len(self.end_co_set)
 
     def get_n_scaf_staple_co_types(self):
         """ dependes on:
@@ -400,7 +401,7 @@ class DesignData(object):
         data = {"scaffold": dict(), "staple": dict()}
         types = {"full": self.full_co_list_seperate,
                  "half": self.half_co_list,
-                 "end": self.end_co_set,
+                 "end": self.end_co_list,
                  }
 
         for typ, crossovers in types.items():
@@ -623,11 +624,12 @@ class DesignData(object):
 
     def get_blunt_ends(self):
         blunt_ends = set()
-        for co in self.end_co_set:
-            for base in co:
-                if base.is_scaf:
-                    if (base.across in self.first_bases) or (base.across in self.last_bases):
-                        blunt_ends.add(co)
+        for co in self.end_co_list:
+            if co[0].is_scaf:
+                if (co[0].across == True) and (co[1].across == True):
+                    for base in co:
+                        if (base.across in self.first_bases) or (base.across in self.last_bases):
+                            blunt_ends.add(co)
         return blunt_ends
 
 
@@ -689,15 +691,19 @@ def export_data(data: dict, name: str) -> None:
 
 
 def main():
-    f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
-    for line in f:
-        if line.startswith('Project ='):
-            name = line[9:-1].strip()
-            break
-    # print("master, I am awaiting the name of your design")
-    # name = input()
-    # print("Thank you Sir")
-    designData = DesignData(name=name)
+
+    #f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
+    #for line in f:
+    #if line.startswith('Project ='):
+    #    name = line[9:-1].strip()
+    #    break
+
+    print("master, I am awaiting the name of your design")
+    json = "TTcorr.json"
+    name = json
+    print("Thank you Sir")
+
+    designData = DesignData(name=name, json=json)
     data = designData.compute_data()
     export_data(data=data, name=name)
     return
