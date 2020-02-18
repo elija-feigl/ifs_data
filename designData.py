@@ -674,6 +674,7 @@ def prep_data_for_export(data):
     return export
 
 
+"""
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
@@ -713,3 +714,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
