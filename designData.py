@@ -618,7 +618,10 @@ class DesignData(object):
             co_density[strand] = dict()
             for typ, n_possible in possible_crossovers[strand].items():
                 n_set = set_crossovers[strand][typ]
-                co_density[strand][typ] = n_set / n_possible
+                if n_possible == 0:
+                    co_density[strand][typ] = 0
+                else:
+                    co_density[strand][typ] = n_set / n_possible
 
         return possible_crossovers, co_density
 
@@ -671,7 +674,6 @@ def prep_data_for_export(data):
     return export
 
 
-"""
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
@@ -693,13 +695,13 @@ def export_data(data: dict, name: str) -> None:
 def main():
 
     #f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
-    #for line in f:
-    #if line.startswith('Project ='):
+    # for line in f:
+    # if line.startswith('Project ='):
     #    name = line[9:-1].strip()
     #    break
 
     print("master, I am awaiting the name of your design")
-    json = "TTcorr.json"
+    json = "42hb_v40_polyT.json"
     name = json
     print("Thank you Sir")
 
@@ -711,4 +713,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
