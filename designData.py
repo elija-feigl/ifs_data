@@ -435,7 +435,7 @@ class DesignData(object):
         base_ins = 0
         for strand in self.dna_structure_skips.strands:
             for base in strand.tour:
-                if base.num_insertions == -1:
+                if base.num_insertions != 0:
                     base_ins += 1
 
         data["del_density"] = len(
