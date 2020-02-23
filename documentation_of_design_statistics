@@ -120,7 +120,7 @@
 
 "co_density-staple-end": number of staple endloops divided by number of possible staple endloops.
 
-"stacks": number of stacks of the structure.
+"stacks": a list containing the length of different stacks in the structure.(how many full crossovers are aligned subsequently)
 	possible values:(get_statistics) getting the statistics(Avg,Std,Max,Min) of the list.
 
 "del_density": number of deletions(skips) divided by number of all bases including the skips.
