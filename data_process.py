@@ -3,6 +3,7 @@ import glob
 import designData
 from pathlib import Path
 import logging
+from datetime import date
 
 
 FOLDER_EXCEPTION = [
@@ -19,17 +20,24 @@ def export_data(data: dict, name: str) -> None:
     header = ", ".join([str(i) for i in export.keys()])
     export_str = ", ".join([str(i) for i in export.values()])
 
+    filename = "foldingdatabase-" + \
+        str(date.today.strftime("%y-%b-%d")) + ".csv"
+
     try:
-        with open("./database/designdata.csv", mode="r+") as out:
-            if header == out.readline(0):
-                pass
+        with open("./database/" + filename, mode="r+") as out:
+            if header != out.readline(0):
+                out.write(header + "\n")
+
+        with open("./database/" + filename, mode="a") as out:
+            out.write(export_str + "\n")
+
     except FileNotFoundError:
-        with open("./database/designdata.csv", mode="w+") as out:
+        with open("./database/" + filename, mode="w+") as out:
             out.write(header + "\n")
 
-    with open("./database/designdata.csv", mode="a") as out:
-        out.write(export_str + "\n")
-        # out.write("\nEND")
+        with open("./database/" + filename, mode="a") as out:
+            out.write(export_str + "\n")
+
     return
 
 
@@ -38,7 +46,6 @@ def main():
     logging.basicConfig()
     handle = "folding-DB"
     logger = logging.getLogger(handle)
-
 
     outputname = "database"
     try:
@@ -66,13 +73,15 @@ def main():
                                     json=json, name=name
                                 )
                             except Exception as e:
-                                e_ = "nanodesign:  {} | Error: {}".format(name, e)
+                                e_ = "nanodesign:  {} | Error: {}".format(
+                                    name, e)
                                 logger.error(e_)
                             try:
                                 data = designdata.compute_data()
                                 export_data(data=data, name=name)
                             except Exception as e:
-                                e_ = "stats:       {} | Error: {}".format(name, e)
+                                e_ = "stats:       {} | Error: {}".format(
+                                    name, e)
                                 logger.error(e_)
 
                 else:
