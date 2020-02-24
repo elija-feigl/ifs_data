@@ -180,7 +180,6 @@ class DesignData(object):
                         domain_unpaired.append(domain)
                         break
 
-#TODO###
             if len(long_st_domain) >= 2:
                 data["2_long_domains"].append(strand)
             elif len(long_st_domain) == 1:
@@ -256,9 +255,9 @@ class DesignData(object):
         all_co_tuple_list = []
         for strand in self.all_strands:
             if strand.is_scaffold:
-                self.all_strands.remove(strand)
-                strand = self._close_strand(strand)
-                self.all_strands.append(strand)
+
+                new_strand = self._close_strand(strand)
+                self.all_strands[strand.id] = new_strand
 
         for strand in self.all_strands:
             for base in strand.tour:
@@ -702,11 +701,11 @@ def main():
     #    break
 
     print("master, I am awaiting the name of your design")
-    json = "42hb_v40_polyT.json"
+    json = "Tvolodymyr5"
     name = json
     print("Thank you Sir")
 
-    designData = DesignData(name=name, json=json)
+    designData = DesignData(name=name, json=json + ".json")
     data = designData.compute_data()
     export_data(data=data, name=name)
     return
