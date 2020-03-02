@@ -7,6 +7,7 @@ import sys
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
+import attr
 
 
 class DesignData(object):
@@ -24,7 +25,7 @@ class DesignData(object):
         # crossover
         self.all_co_tuples_list: list = self._get_all_co_tuple()
         self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
-        self.full_co_list_seperate, self.full_co_list_packed, self.full_co_set = self._get_full_co_list()
+        self.full_co_list_seperate, self.full_co_list_packed = self._get_full_co_list()
         self.end_co_list = self._get_endloop_co_list()
         self.half_co_list = self._get_half_co_list()
         self.stacks = self.get_stacks()
@@ -87,7 +88,7 @@ class DesignData(object):
         """[closes the scaffold andmaking it a loop]
 
         Returns:
-            [strand] -- [description]
+            [strand] -- [closed scaffold strand]
         """
         start = strand.tour[0]
         end = strand.tour[-1]
@@ -113,17 +114,13 @@ class DesignData(object):
                 all_bases.append(base)
         return all_bases
 
-    def get_staples_length(self):
+    def get_staples_length(self) -> list:
         len_strands = []
         for strand in self.all_strands:
             if not strand.is_scaffold:
                 tour_clean = [base for base in strand.tour]
                 len_strands.append(len(tour_clean))
         return len_strands
-
-    def get_structure_size(self):
-        # TODO:...
-        return
 
     def get_n_skips(self) -> int:
         return len(self.dna_structure.Dhp_skips)
@@ -174,7 +171,7 @@ class DesignData(object):
             for domain in strand.domain_list:
                 if len(domain.base_list) >= 14:
                     long_st_domain.append(strand)
-            for domain in strand.domain_list:
+
                 for base in domain.base_list:
                     if base.across == None:
                         domain_unpaired.append(domain)
@@ -252,7 +249,7 @@ class DesignData(object):
 
     def _get_all_co_tuple(self) -> list:
         all_co_tuples = set()
-        all_co_tuple_list = []
+        all_co_tuples_list = []
         for strand in self.all_strands:
             if strand.is_scaffold:
 
@@ -262,21 +259,17 @@ class DesignData(object):
         for strand in self.all_strands:
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
-                    co_tuple = set()
+                    co_tuple = tuple()
                     if base.up.h != base.h:
-                        co_tuple.add(base.up)
-                        co_tuple.add(base)
-                        all_co_tuples.add(frozenset(co_tuple))
-                        co_tuple = set()
+                        co_tuple = (base, base.up)
+                        all_co_tuples.add(tuple(set(co_tuple)))
                     elif base.down.h != base.h:
-                        co_tuple.add(base.down)
-                        co_tuple.add(base)
-                        all_co_tuples.add(frozenset(co_tuple))
-                        co_tuple = set()
+                        co_tuple = (base.down, base)
+                        all_co_tuples.add(tuple(set(co_tuple)))
         for co in all_co_tuples:
-            all_co_tuple_list.append(co)
+            all_co_tuples_list.append(co)
 
-        return all_co_tuple_list
+        return all_co_tuples_list
 
     def _get_horozantal_vertical_co(self):
         all_co_tuples_h = set()
@@ -318,19 +311,19 @@ class DesignData(object):
                     base.h, base.p - 1, base.is_scaf, dir=-1)
                 co_tuple_plus.add(base_plus)
                 co_tuple_minus.add(base_minus)
-            co_plus_tuples.append(frozenset(co_tuple_plus))
-            co_minus_tuples.append(frozenset(co_tuple_minus))
+            co_plus_tuples = tuple(co_tuple_plus)
+            co_minus_tuples = tuple(co_tuple_minus)
+            fullco = set()
 
-            if co_plus_tuples[0] in self.all_co_tuples_list:
+            if co_plus_tuples in self.all_co_tuples_list:
                 fullco.add(co)
-                fullco.add(co_plus_tuples[0])
+                fullco.add(co_plus_tuples)
                 full_co_list.append(frozenset(fullco))
-                fullco = set()
-            elif co_minus_tuples[0] in self.all_co_tuples_list:
+
+            elif co_minus_tuples in self.all_co_tuples_list:
                 fullco.add(co)
-                fullco.add(co_minus_tuples[0])
+                fullco.add(co_minus_tuples)
                 full_co_list.append(frozenset(fullco))
-                fullco = set()
 
             co_plus_tuples = []
             co_minus_tuples = []
@@ -344,27 +337,13 @@ class DesignData(object):
                 full_co_list_seperate.append(co)
 
         full_co_list_packed = []
-        full_co_tuple = []
         for full_co in full_co_set:
-            for co in full_co:
-                full_co_tuple.append(tuple(co))
-            full_co_list_packed.append(tuple(full_co_tuple))
-            full_co_tuple = []
+            full_co_list_packed.append(tuple(full_co))
 
-        dummy = []
-        dummy_m = []
-        for full in full_co_list_packed:
-            for co in full:
-                for base in co:
-                    dummy.append(base)
-            dummy_m.append(dummy)
-            dummy = []
-
-        return full_co_list_seperate, full_co_list_packed, full_co_set
+        return full_co_list_seperate, full_co_list_packed
 
     def _get_endloop_co_list(self) -> list:
         end_co_list = []
-        end_co_set = set()
         for co in self.all_co_tuples_list:
             for base in co:
                 base_plus = self.get_base_from_hps(
@@ -373,10 +352,8 @@ class DesignData(object):
                     base.h, base.p - 1, base.is_scaf, dir=-1)
 
                 if (base_plus is None) or (base_minus is None):
-                    end_co_set.add(co)
-        for co in end_co_set:
-            co = tuple(co)
-            end_co_list.append(co)
+                    if co not in end_co_list:
+                        end_co_list.append(co)
 
         return end_co_list
 
@@ -391,11 +368,9 @@ class DesignData(object):
 
     def get_n_scaf_staple_co_types(self):
         """ dependes on:
-                self.full_co_list,
-                 "half": self.half_co_list,
-                 "end": self.end_co_set,
-                  self.all_co_tuples_h:
-
+                "full": self.full_co_list,
+                "half": self.half_co_list,
+                "end":  self.end_co_set
             """
         data = {"scaffold": dict(), "staple": dict()}
         types = {"full": self.full_co_list_seperate,
@@ -694,14 +669,14 @@ def export_data(data: dict, name: str) -> None:
 
 def main():
 
-    #f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
+    # f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
     # for line in f:
     # if line.startswith('Project ='):
     #    name = line[9:-1].strip()
     #    break
 
     print("master, I am awaiting the name of your design")
-    json = "Tvolodymyr5"
+    json = "TTcorr"
     name = json
     print("Thank you Sir")
 
