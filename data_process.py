@@ -78,7 +78,8 @@ def main():
                                 logger.error(e_)
                             try:
                                 data = designdata.compute_data()
-                                export_data(data=data, name=name, outputname)
+                                export_data(data=data, name=name,
+                                            outputname=outputname)
                             except Exception as e:
                                 e_ = "stats:       {} | Error: {}".format(
                                     name, e)

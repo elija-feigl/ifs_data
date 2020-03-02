@@ -44,23 +44,24 @@ class DesignData(object):
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
-        # domains
-        data["n_staple_domain"] = self.get_staple_domain()
-        data["long_domains"] = self.get_staples_with_long_domains()
-        data.update(self.divide_domain_lengths())
+        data["stacks"] = len(self.get_stacks())
+        data["n_stacks"] = self.get_n_stacks()
+        data.update(self.get_insertion_deletion_density())
+        data["n_blunt_ends"] = len(self.get_blunt_ends())
+
         # staple stats
         data["n_staples"] = len(self.get_all_staple())
         data["staple_length"] = self.get_staples_length()
         data["helices_staples_pass"] = list(self.init_helix_dict().values())
+
+        # domains
+        data["n_staple_domain"] = self.get_staple_domain()
+        data["long_domains"] = self.get_staples_with_long_domains()
+        data.update(self.divide_domain_lengths())
+
         # crossovers
         data["co_set"] = self.get_n_scaf_staple_co_types()
         data["co_possible"], data["co_density"] = self.get_co_density()
-        data["stacks"] = len(self.get_stacks())
-        data["n_stacks"] = self.get_n_stacks()
-
-        data.update(self.get_insertion_deletion_density())
-
-        data["n_blunt_ends"] = len(self.get_blunt_ends())
 
         self.data = data
         return self.data
@@ -100,6 +101,20 @@ class DesignData(object):
         if (h, p) in self.dna_structure.Dhp_skips:
             p += np.sign(dir)
         return self.hps_base.get((h, p, is_scaffold), None)
+
+    def get_base_plus_minus(self, base):
+        """[given a base, it returns a neighbour base]
+
+
+        Returns:
+            [base_plus] -- [base with one position up along the helix]
+            [base_minus] -- [base with on position down along the helix]
+        """
+        base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
+        base_minus = self.get_base_from_hps(
+            base.h, base.p - 1, base.is_scaf, dir=-1)
+
+        return base_plus, base_minus
 
     def get_lattice_type(self):
         if type(self.dna_structure.lattice) == nd.data.lattice.SquareLattice:
@@ -297,13 +312,15 @@ class DesignData(object):
             list -- [full_co_list_packed: get full co as a pack of two crossover (representation: [Co[B,B],Co[B,B], all in lists)
                      full_co_list_seperate: also seperately as individual crossovers (every Co in frozenset of two bases)]
         """
-        co_plus_tuples = []
-        co_minus_tuples = []
+
         full_co_list = []
-        fullco = set()
         for co in self.all_co_tuples_list:
+            co_neighbours = {"co_tuples_plus": tuple(),
+                             "co_tuples_minus": tuple()
+                             }
             co_tuple_plus = set()
             co_tuple_minus = set()
+
             for base in co:
                 base_plus = self.get_base_from_hps(
                     base.h, base.p + 1, base.is_scaf)
@@ -311,34 +328,28 @@ class DesignData(object):
                     base.h, base.p - 1, base.is_scaf, dir=-1)
                 co_tuple_plus.add(base_plus)
                 co_tuple_minus.add(base_minus)
-            co_plus_tuples = tuple(co_tuple_plus)
-            co_minus_tuples = tuple(co_tuple_minus)
+            co_neighbours["co_tuples_plus"] = tuple(co_tuple_plus)
+            co_neighbours["co_tuples_minus"] = tuple(co_tuple_minus)
+
             fullco = set()
+            for typ in ["co_tuples_plus", "co_tuples_minus"]:
+                if co_neighbours[typ] in self.all_co_tuples_list:
+                    fullco.add(co)
+                    fullco.add(co_neighbours[typ])
+                    full_co_list.append(frozenset(fullco))
 
-            if co_plus_tuples in self.all_co_tuples_list:
-                fullco.add(co)
-                fullco.add(co_plus_tuples)
-                full_co_list.append(frozenset(fullco))
-
-            elif co_minus_tuples in self.all_co_tuples_list:
-                fullco.add(co)
-                fullco.add(co_minus_tuples)
-                full_co_list.append(frozenset(fullco))
-
-            co_plus_tuples = []
-            co_minus_tuples = []
+                co_neighbours[typ] = []
 
         # putting all full_co in a list configuration as [(Co(B,B),Co(B,B))] two parallel Co in a tuple and two bases also in a tuple
 
         full_co_set = set(full_co_list)
         full_co_list_seperate = []
+        full_co_list_packed = []
+
         for full in full_co_set:
+            full_co_list_packed.append(tuple(full))
             for co in full:
                 full_co_list_seperate.append(co)
-
-        full_co_list_packed = []
-        for full_co in full_co_set:
-            full_co_list_packed.append(tuple(full_co))
 
         return full_co_list_seperate, full_co_list_packed
 
@@ -648,7 +659,6 @@ def prep_data_for_export(data):
     return export
 
 
-"""
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
@@ -688,4 +698,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
