@@ -9,11 +9,8 @@
 
 "n_nicks": number of the nicks in the structure.
 
-"n_staple_domain": a list of number of domains for each staple. 
-	possible values:(get_statistics) getting the statistics(Avg,Std,Max,Min) of the list.
-
-"long_domains": a list containing number of long domains (more that 14 bases in a domain) for each staple.
-	possible values:(get_statistics) getting the statistics(Avg,Std,Max,Min) of the list.
+"n_staple_domain": number of domains for each staple. 
+	possible values: Avg, Std, Max, Min numbr of staples domains.
 
 "2_long_domains": number of staples with more than 2 long domains.
 
@@ -25,11 +22,11 @@
 
 "n_staples": number of staples for the structure.
 	
-"staple_length": a list containing lengh of each staple.
-	possible values:(get_statistics) getting the statistics(Avg,Std,Max,Min) of the list.
+"staple_length": lengh of each staple.
+	possible values: Avg, Std, Max, Min number of staple lengths.
 
-"helices_staples_pass": a list containig numbers of helices each staple passes through.
-	possible values:(get_statistics) getting the statistics(Avg,Std,Max,Min) of the list.
+"helices_staples_pass":numbers of helices each staple passes through.
+	possible values: Avg, Std, Max, Min number of helices a staple passes.
 
 ##################################################################################################
 "co_set-scaffold-full": number of scaffold full crossovers.
@@ -120,8 +117,10 @@
 
 "co_density-staple-end": number of staple endloops divided by number of possible staple endloops.
 
-"stacks": a list containing the length of different stacks in the structure.(how many full crossovers are aligned subsequently)
-	possible values:(get_statistics) getting the statistics(Avg,Std,Max,Min) of the list.
+"n_stacks":length of different stacks in the structure.(how many full crossovers are aligned subsequently)
+	possible values: Avg, Std, Max, Min stack lengths of the structure.
+
+"stacks" : number of stacks.
 
 "del_density": number of deletions(skips) divided by number of all bases including the skips.
 
