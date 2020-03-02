@@ -230,10 +230,8 @@ class DesignData(object):
                         helices.add(base.h)
             helices_list.append(len(helices))
 
-        for strand, helices in zip(self.all_strands, helices_list):
             if not strand.is_scaffold:
-                dic = {str(strand.id): helices}
-                st_helix_dict.update(dic)
+                st_helix_dict.update({str(strand.id): helices_list[-1]})
 
         return st_helix_dict
 
@@ -659,7 +657,6 @@ def prep_data_for_export(data):
     return export
 
 
-"""
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
@@ -699,4 +696,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
