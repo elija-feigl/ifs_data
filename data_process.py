@@ -14,7 +14,7 @@ FOLDER_EXCEPTION = [
 ]
 
 
-def export_data(data: dict, name: str) -> None:
+def export_data(data: dict, name: str, outputname: str) -> None:
 
     export = designData.prep_data_for_export(data)
     header = ", ".join([str(i) for i in export.keys()])
@@ -24,18 +24,18 @@ def export_data(data: dict, name: str) -> None:
         str(date.today.strftime("%y-%b-%d")) + ".csv"
 
     try:
-        with open("./database/" + filename, mode="r+") as out:
+        with open("./" + outputname + "/" + filename, mode="r+") as out:
             if header != out.readline(0):
                 out.write(header + "\n")
 
-        with open("./database/" + filename, mode="a") as out:
+        with open("./" + outputname + "/" + filename, mode="a") as out:
             out.write(export_str + "\n")
 
     except FileNotFoundError:
-        with open("./database/" + filename, mode="w+") as out:
+        with open("./" + outputname + "/" + filename, mode="w+") as out:
             out.write(header + "\n")
 
-        with open("./database/" + filename, mode="a") as out:
+        with open("./" + outputname + "/" + filename, mode="a") as out:
             out.write(export_str + "\n")
 
     return
@@ -78,7 +78,7 @@ def main():
                                 logger.error(e_)
                             try:
                                 data = designdata.compute_data()
-                                export_data(data=data, name=name)
+                                export_data(data=data, name=name, outputname)
                             except Exception as e:
                                 e_ = "stats:       {} | Error: {}".format(
                                     name, e)
