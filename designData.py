@@ -368,11 +368,9 @@ class DesignData(object):
 
     def get_n_scaf_staple_co_types(self):
         """ dependes on:
-                self.full_co_list,
-                 "half": self.half_co_list,
-                 "end": self.end_co_set,
-                  self.all_co_tuples_h:
-
+                "full": self.full_co_list,
+                "half": self.half_co_list,
+                "end":  self.end_co_set
             """
         data = {"scaffold": dict(), "staple": dict()}
         types = {"full": self.full_co_list_seperate,

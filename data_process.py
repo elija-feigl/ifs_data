@@ -66,7 +66,7 @@ def main():
                     json = jsons[0]
 
                     for line in gel_info:
-                        if line.startswith("Design_name ="):
+                        if line.startswith("Design_name"):
                             try:
                                 name = line[13:-1].strip()
                                 designdata = designData.DesignData(
