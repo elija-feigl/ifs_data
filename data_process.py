@@ -20,22 +20,22 @@ def export_data(data: dict, name: str, outputname: str) -> None:
     header = ", ".join([str(i) for i in export.keys()])
     export_str = ", ".join([str(i) for i in export.values()])
 
-    filename = "foldingdatabase-" + \
-        str(date.today.strftime("%y-%b-%d")) + ".csv"
+    filename = "./" + outputname + "/" + "foldingdatabase-" + \
+        str(date.today().strftime("%y-%b-%d")) + ".csv"
 
     try:
-        with open("./" + outputname + "/" + filename, mode="r+") as out:
+        with open(filename, mode="r+") as out:
             if header != out.readline(0):
                 out.write(header + "\n")
 
-        with open("./" + outputname + "/" + filename, mode="a") as out:
+        with open(filename, mode="a") as out:
             out.write(export_str + "\n")
 
     except FileNotFoundError:
-        with open("./" + outputname + "/" + filename, mode="w+") as out:
+        with open(filename, mode="w+") as out:
             out.write(header + "\n")
 
-        with open("./" + outputname + "/" + filename, mode="a") as out:
+        with open(filename, mode="a") as out:
             out.write(export_str + "\n")
 
     return
@@ -66,25 +66,30 @@ def main():
                     json = jsons[0]
 
                     for line in gel_info:
-                        if line.startswith("Design_name"):
-                            try:
-                                name = line[13:-1].strip()
-                                designdata = designData.DesignData(
-                                    json=json, name=name
-                                )
-                            except Exception as e:
-                                e_ = "nanodesign:  {} | Error: {}".format(
-                                    name, e)
-                                logger.error(e_)
-                            try:
-                                data = designdata.compute_data()
-                                export_data(data=data, name=name,
-                                            outputname=outputname)
-                            except Exception as e:
-                                e_ = "stats:       {} | Error: {}".format(
-                                    name, e)
-                                logger.error(e_)
+                        try:
+                            if line.startswith("Design_name"):
+                                try:
+                                    name = line[13:-1].strip()
+                                    designdata = designData.DesignData(
+                                        json=json, name=name
+                                    )
+                                except Exception as e:
+                                    e_ = "nanodesign:  {} | Error: {}".format(
+                                        name, e)
+                                    logger.error(e_)
+                                try:
+                                    data = designdata.compute_data()
+                                    export_data(data=data, name=name,
+                                                outputname=outputname)
+                                except Exception as e:
+                                    e_ = "stats:       {} | Error: {}".format(
+                                        name, e)
+                                    logger.error(e_)
 
+                        except UnicodeDecodeError as e:
+                            e_ = "stats:       {} | Error: {}".format(
+                                folder.name, e)
+                            logger.error(e_)
                 else:
                     e_ = "json missing:   | Folder: {}".format(folder.name)
                     logger.warning(e_)

@@ -2,12 +2,6 @@
 from nanodesign.converters import Converter
 import nanodesign as nd
 import numpy as np
-import re
-import sys
-import os
-from pathlib import Path
-import matplotlib.pyplot as plt
-import attr
 
 
 class DesignData(object):
@@ -105,7 +99,6 @@ class DesignData(object):
     def get_base_plus_minus(self, base):
         """[given a base, it returns a neighbour base]
 
-
         Returns:
             [base_plus] -- [base with one position up along the helix]
             [base_minus] -- [base with on position down along the helix]
@@ -188,7 +181,7 @@ class DesignData(object):
                     long_st_domain.append(strand)
 
                 for base in domain.base_list:
-                    if base.across == None:
+                    if base.across is None:
                         domain_unpaired.append(domain)
                         break
 
@@ -202,7 +195,7 @@ class DesignData(object):
 
         for strand in self.all_staples:
             for domain in strand.domain_list:
-                if not domain in domain_unpaired:
+                if domain not in domain_unpaired:
                     if len(domain.base_list) < 5:
                         data["co_rule_violation"].append(domain)
 
@@ -404,14 +397,14 @@ class DesignData(object):
             for s, direction_sets in co_subsets.items():  # scaffold, staple
                 for dir in direction_sets:  # h, v
                     len_subset = len(co_subsets[s][dir])
-                    n_co = len_subset/2 if typ == "full" else len_subset
+                    n_co = len_subset / 2 if typ == "full" else len_subset
                     data[s][typ + dir] = n_co
 
         for strand in ["scaffold", "staple"]:
             data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
             for typ in ["v", "h"]:
-                data[strand]["co-"+typ] = (data[strand]["half-" + typ]
-                                           + data[strand]["full-"+typ])
+                data[strand]["co-" + typ] = (data[strand]["half-" + typ]
+                                             + data[strand]["full-" + typ])
         return data
 
     def get_insertion_deletion_density(self):
@@ -449,10 +442,10 @@ class DesignData(object):
             added.append(False)
 
         for full in full_packed_co:
-            if added[J] == False:
+            if added[J] is False:
                 K = 0
                 for full_1 in full_packed_co:
-                    if (full != full_1) and (added[K] == False) and (np.abs(full[0][0].p - full_1[0][0].p) <= 3):
+                    if (full != full_1) and (added[K] is False) and (np.abs(full[0][0].p - full_1[0][0].p) <= 3):
                         dummy.append(full_1)
                         added[K] = True
                     K = K + 1
@@ -474,21 +467,21 @@ class DesignData(object):
 
             for co in full:
                 for base in co:
-                    if not base.h in h:
+                    if base.h not in h:
                         h.append(base.h)
 
                 for full_1 in group:
                     for co in full_1:
                         for base in co:
-                            if not base.h in h_1:
+                            if base.h not in h_1:
                                 h_1.append(base.h)
 
                     if len(common(h, h_1)) == 1:
-                        if not full_1 in dummy:
+                        if full_1 not in dummy:
                             dummy.append(full_1)
                         else:
                             pass
-                        if not full in dummy:
+                        if full not in dummy:
                             dummy.append(full)
                         else:
                             pass
@@ -503,7 +496,7 @@ class DesignData(object):
 
         for group in same_pos:
             for f in group:
-                if not f in checked:
+                if f not in checked:
                     dummy.extend(checker(f, group, dummy))
                     checked.add(f)
 
@@ -511,14 +504,14 @@ class DesignData(object):
                         n = 0
                         while n < len(group):
                             for ff in dummy:
-                                if not ff in checked:
+                                if ff not in checked:
                                     dummy.extend(checker(ff, group, dummy))
                                     checked.add(ff)
-                            n = n+1
+                            n = n + 1
                         n = 0
 
                         dummy = tuple(set(tuple(dummy)))
-                        if not dummy in stacks:
+                        if dummy not in stacks:
                             stacks.append(dummy)
 
                         dummy = []
@@ -554,13 +547,13 @@ class DesignData(object):
             if len(co_list) == 2 and co_list[0] != co_list[1]:
                 return 2, 0
 
-            if co_list[0]+1 != co_list[1]:
+            if co_list[0] + 1 != co_list[1]:
                 n_ends += 1
                 co_list = co_list[1:]
-            if co_list[-1]-1 != co_list[-2]:
+            if co_list[-1] - 1 != co_list[-2]:
                 n_ends += 1
                 co_list = co_list[:-1]
-            return n_ends, len(co_list)/2
+            return n_ends, len(co_list) / 2
 
         possible_crossovers = {"scaffold": {"co": 0, "co-h": 0, "co-v": 0, "end": 0},
                                "staple": {"co": 0, "co-h": 0, "co-v": 0, "end": 0}
@@ -614,7 +607,7 @@ class DesignData(object):
         blunt_ends = set()
         for co in self.end_co_list:
             if co[0].is_scaf:
-                if (co[0].across == True) and (co[1].across == True):
+                if (co[0].across is True) and (co[1].across is True):
                     for base in co:
                         if (base.across in self.first_bases) or (base.across in self.last_bases):
                             blunt_ends.add(co)
