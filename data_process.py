@@ -4,6 +4,7 @@ import designData
 from pathlib import Path
 import logging
 from datetime import date
+import csv
 
 
 FOLDER_EXCEPTION = [
@@ -14,18 +15,16 @@ FOLDER_EXCEPTION = [
 ]
 
 
-def export_data(data: dict, name: str, outputname: str) -> None:
+def export_data(data: dict, name: str, outputname: str, filename: str) -> None:
 
     export = designData.prep_data_for_export(data)
     header = ", ".join([str(i) for i in export.keys()])
     export_str = ", ".join([str(i) for i in export.values()])
 
-    filename = "./" + outputname + "/" + "foldingdatabase-" + \
-        str(date.today().strftime("%y-%b-%d")) + ".csv"
-
     try:
-        with open(filename, mode="r+") as out:
-            if header != out.readline(0):
+        with open(filename) as out:
+            has_header = csv.Sniffer().has_header(out.read(1024))
+            if not has_header:
                 out.write(header + "\n")
 
         with open(filename, mode="a") as out:
@@ -34,7 +33,6 @@ def export_data(data: dict, name: str, outputname: str) -> None:
     except FileNotFoundError:
         with open(filename, mode="w+") as out:
             out.write(header + "\n")
-
         with open(filename, mode="a") as out:
             out.write(export_str + "\n")
 
@@ -53,20 +51,28 @@ def main():
     except FileExistsError:
         pass
 
-    folders = Path("./")
+    filename = "./" + outputname + "/" + "foldingdatabase-" + \
+        str(date.today().strftime("%y-%b-%d")) + ".csv"
+
+    os.remove(filename)
+
+    parent_folder = "../Foldingscreens_202002/"
+    folders = Path("../Foldingscreens_202002")
+
     for folder in folders.iterdir():
         if folder.name in FOLDER_EXCEPTION + [outputname]:
             continue
-        folder_content = glob.glob(folder.name + "/*.txt")
+        folder_content = glob.glob(parent_folder + folder.name + "/*.txt")
+
         if folder_content:
             with open(folder_content[0], 'r', encoding="utf8") as gel_info:
+                jsons = glob.glob(parent_folder + folder.name + "/*.json")
 
-                jsons = glob.glob(folder.name + "/*.json")
                 if jsons:
                     json = jsons[0]
 
-                    for line in gel_info:
-                        try:
+                    try:
+                        for line in gel_info:
                             if line.startswith("Design_name"):
                                 try:
                                     name = line[13:-1].strip()
@@ -80,16 +86,16 @@ def main():
                                 try:
                                     data = designdata.compute_data()
                                     export_data(data=data, name=name,
-                                                outputname=outputname)
+                                                outputname=outputname, filename=filename)
                                 except Exception as e:
                                     e_ = "stats:       {} | Error: {}".format(
                                         name, e)
                                     logger.error(e_)
 
-                        except UnicodeDecodeError as e:
-                            e_ = "stats:       {} | Error: {}".format(
-                                folder.name, e)
-                            logger.error(e_)
+                    except UnicodeDecodeError as e:
+                        e_ = "stats:       {} | Error: {}".format(
+                            folder.name, e)
+                        logger.error(e_)
                 else:
                     e_ = "json missing:   | Folder: {}".format(folder.name)
                     logger.warning(e_)
