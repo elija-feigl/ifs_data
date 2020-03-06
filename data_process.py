@@ -16,13 +16,14 @@ FOLDER_EXCEPTION = [
 ]
 
 
-def export_data(data: dict, name: str, outputname: str, filename: str, mat_data: dict) -> None:
+def export_data(data: dict, name: str, outputname: str, filename: str) -> None:
 
     export = designData.prep_data_for_export(data)
-    header = ", ".join([str(i) for i in mat_data.keys()]) + \
-        ", " + ", ".join([str(i) for i in export.keys()])
-    export_str = ", ".join([str(i) for i in mat_data.values()]) + \
-        ", " + ", ".join([str(i) for i in export.values()])
+    # TODO#", ".join([str(i) for i in mat_data.keys()])
+    header = ", ".join([str(i) for i in export.keys()])
+
+    # TODO#", ".join([str(i) for i in mat_data.values()])
+    export_str = ", ".join([str(i) for i in export.values()])
 
     try:
         with open(filename) as out:
@@ -55,17 +56,21 @@ def read_mat(mat_file: dict):
     types = list(mat['gelInfo'].dtype.names)
     exception = ['lanes', 'log_file', 'lanes_unparsed', 'comment', 'filename']
     """
+
     for typ in types:
         try:
             if ',' in str(mat['gelInfo'][typ]):
                 new = str(mat['gelInfo'][typ]).replace(',', '.')
                 info = {typ: new}
+
             else:
                 info = {typ: str(mat['gelInfo'][typ])}
 
             data.update(info)
+
         except ValueError:
             data.update({typ: " "})
+
     return data
 
 
@@ -97,7 +102,7 @@ def main():
         if folder.name in FOLDER_EXCEPTION + [outputname]:
             continue
         txt_file = glob.glob(parent_folder + folder.name + "/*.txt")
-        mat_file = glob.glob(parent_folder + folder.name + "/*.mat")
+        # TODO# mat_file = glob.glob(parent_folder + folder.name + "/*.mat")
 
         if txt_file:
             with open(txt_file[0], 'r', encoding="utf8") as gel_info:
@@ -111,9 +116,9 @@ def main():
                             if line.startswith("Design_name"):
                                 try:
 
-                                    mat_data = read_mat(mat_file)
-
-                                    name = mat_data["design_name"]
+                                    # TODO#mat_data = read_mat(mat_file)
+                                    # TODO#name = mat_data["design_name"]
+                                    name = line[13:-1].strip()
 
                                     designdata = designData.DesignData(
                                         json=json, name=name)
@@ -125,7 +130,7 @@ def main():
                                 try:
                                     data = designdata.compute_data()
                                     export_data(data=data, name=name,
-                                                outputname=outputname, filename=filename, mat_data=mat_data)
+                                                outputname=outputname, filename=filename)
                                 except Exception as e:
                                     e_ = "stats:       {} | Error: {}".format(
                                         name, e)

@@ -33,6 +33,8 @@ class DesignData(object):
 
     def compute_data(self) -> dict:
         data = {}
+        data["name"] = self.name
+        data["lattice_type"] = self.get_lattice_type()
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
