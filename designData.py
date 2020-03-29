@@ -2,6 +2,7 @@
 from nanodesign.converters import Converter
 import nanodesign as nd
 import numpy as np
+import os
 
 
 class DesignData(object):
@@ -11,10 +12,10 @@ class DesignData(object):
         self.name: str = name
         self.dna_structure, self.dna_structure_skips = self.init_design()
         self.all_strands: list = self.dna_structure.strands
-        self.all_staples: list = self.get_all_staple()
-        self.data: dict = {}
         self.all_bases: list = self.get_all_bases()
-        self.hps_base: dict = self.init_hps()
+        self.all_staples: list = self.get_all_staple()
+        self.hps_base = self.init_hps()
+        self.data: dict = {}
         self.n_st_domains = self.get_staple_domain()
         # crossover
         self.all_co_tuples_list: list = self._get_all_co_tuple()
@@ -71,14 +72,6 @@ class DesignData(object):
         converter_skip.dna_structure.compute_aux_data()
         return converter.dna_structure, converter_skip.dna_structure
 
-    def init_hps(self) -> dict:
-        hps_base = {}
-        for strand in self.all_strands:
-            for base in strand.tour:
-                position = (base.h, base.p, base.is_scaf)
-                hps_base[position] = base
-        return hps_base
-
     def _close_strand(self, strand):
         """[closes the scaffold andmaking it a loop]
 
@@ -91,7 +84,29 @@ class DesignData(object):
         self.dna_structure.strands[start.strand].is_circular = True
         return strand
 
+    def init_hps(self) -> dict:
+        hps_base = {}
+        for strand in self.all_strands:
+            for base in strand.tour:
+                position = (base.h, base.p, base.is_scaf)
+                hps_base[position] = base
+        return hps_base
+
     def get_base_from_hps(self, h, p, is_scaffold, dir=1):
+        """[get the base object from its coordination: (h, p is_scaffold)]
+
+        Arguments:
+            h {[int]} -- [helix]
+            p {[int]} -- [position]
+            is_scaffold {bool} -- [scaffold = True or staple = False]
+
+        Keyword Arguments:
+            dir {int} -- [direction] (default: {1})
+
+        Returns:
+            [base] -- [base of the giver coordination]
+        """
+
         if (h, p) in self.dna_structure.Dhp_skips:
             p += np.sign(dir)
         return self.hps_base.get((h, p, is_scaffold), None)
@@ -104,8 +119,7 @@ class DesignData(object):
             [base_minus] -- [base with on position down along the helix]
         """
         base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-        base_minus = self.get_base_from_hps(
-            base.h, base.p - 1, base.is_scaf, dir=-1)
+        base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf, dir=-1)
 
         return base_plus, base_minus
 
@@ -313,10 +327,7 @@ class DesignData(object):
             co_tuple_minus = set()
 
             for base in co:
-                base_plus = self.get_base_from_hps(
-                    base.h, base.p + 1, base.is_scaf)
-                base_minus = self.get_base_from_hps(
-                    base.h, base.p - 1, base.is_scaf, dir=-1)
+                base_plus, base_minus = self.get_base_plus_minus(base)
                 co_tuple_plus.add(base_plus)
                 co_tuple_minus.add(base_minus)
             co_neighbours["co_tuples_plus"] = tuple(co_tuple_plus)
@@ -401,8 +412,7 @@ class DesignData(object):
         for strand in ["scaffold", "staple"]:
             data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
             for typ in ["v", "h"]:
-                data[strand]["co-" + typ] = (data[strand]["half-" + typ]
-                                             + data[strand]["full-" + typ])
+                data[strand]["co-" + typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
         return data
 
     def get_insertion_deletion_density(self):
@@ -571,15 +581,11 @@ class DesignData(object):
 
                     if typ == "h":
                         x = [co[1] for co in p_co
-                             if (is_ds(pos=co[1], hid=helix.id)
-                                 and (helix_row == co[0].lattice_row)
-                                 )
+                             if (is_ds(pos=co[1], hid=helix.id) and (helix_row == co[0].lattice_row))
                              ]
                     else:
                         x = [co[1] for co in p_co
-                             if (is_ds(pos=co[1], hid=helix.id)
-                                 and (helix_row != co[0].lattice_row)
-                                 )
+                             if (is_ds(pos=co[1], hid=helix.id) and (helix_row != co[0].lattice_row))
                              ]
                     end, co = cleanup_co(sorted(x))
                     possible_crossovers[strand]["co"] += co
@@ -650,7 +656,6 @@ def prep_data_for_export(data):
     return export
 
 
-"""
 def export_data(data: dict, name: str) -> None:
 
     export = prep_data_for_export(data)
@@ -690,4 +695,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-"""
