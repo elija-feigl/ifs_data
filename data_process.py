@@ -1,60 +1,59 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-3
+
 import os
-import glob
-import designData
-from pathlib import Path
+import argparse
 import logging
-from datetime import date
 import csv
 import scipy.io as sio
 
+from pathlib import Path
+from typing import IO
+from datetime import date
 
-FOLDER_EXCEPTION = [
-    "Foldingscreen_analysis-master", "AAA_TEMPLATE",
-    "ZZZ_output", "ZZZfolder_of_shame_aka_missing_data",
-    "ZZZnon_standard_folding_screens", "Icon", ".DS_Store",
-    "JF_MP_ExcessFiles"
-]
+from utils import Project, ignored, get_file, EXC_TXT
+from designData import DesignData
 
 
-def export_data(data: dict, name: str, outputname: str, filename: str, mat_data: dict) -> None:
+__authors__ = ["Elija Feigl", "Kuorosh Zargari"]
+__version__ = "0.1"
+DESCRIPTION = "processes database design files. matlabscript on IFS has to be\
+              run first. creates database.csv in specified folder"
+FOLDER_EXCEPTION = ["Icon", ".DS_Store"]
 
-    export = designData.prep_data_for_export(data)
-    header = ", ".join([str(i) for i in mat_data.keys()]) + \
-        ", " + ", ".join([str(i) for i in export.keys()])
-    export_str = ", ".join([str(i) for i in mat_data.values()]) + \
-        ", " + ", ".join([str(i) for i in export.values()])
+
+def export_data(data: dict, fdb_file: Path) -> None:
+    header = ", ".join([str(i) for i in data.keys()])
+    export_str = ", ".join([str(i) for i in data.values()])
 
     try:
-        with open(filename) as out:
+        with open(fdb_file) as out:
             has_header = csv.Sniffer().has_header(out.read(1024))
             if not has_header:
                 out.write(header + "\n")
 
-        with open(filename, mode="a") as out:
+        with open(fdb_file, mode="a") as out:
             out.write(export_str + "\n")
 
     except FileNotFoundError:
-        with open(filename, mode="w+") as out:
+        with open(fdb_file, mode="w+") as out:
             out.write(header + "\n")
-        with open(filename, mode="a") as out:
+        with open(fdb_file, mode="a") as out:
             out.write(export_str + "\n")
 
     return
 
 
-def read_mat(mat_file: dict):
+def process_mat_file(mat_file: IO) -> dict:
     data = dict()
-    mat = sio.loadmat(mat_file[0], squeeze_me=True)
+    mat = sio.loadmat(mat_file, squeeze_me=True)
 
     types = ['user', 'project', 'design_name', 'date',
              'scaffold_type', 'lattice_type', 'scaffold_concentration',
-             'staple_concentration', 'gelsize', 'agarose_concentration', 'staining',
-             'mg_concentration', 'voltage', 'running_time', 'cooling']
+             'staple_concentration', 'gelsize', 'agarose_concentration',
+             'staining', 'mg_concentration', 'voltage', 'running_time',
+             'cooling']
 
-    """
-    types = list(mat['gelInfo'].dtype.names)
-    exception = ['lanes', 'log_file', 'lanes_unparsed', 'comment', 'filename']
-    """
     for typ in types:
         try:
             if ',' in str(mat['gelInfo'][typ]):
@@ -66,82 +65,114 @@ def read_mat(mat_file: dict):
             data.update(info)
         except ValueError:
             data.update({typ: " "})
+
+    types2 = ["qualityMetric", "bestTscrn", "bestMgscrn"]
+
+    for typ in types2:
+        try:
+            if ',' in str(mat['foldingAnalysis'][typ]):
+                new = str(mat['foldingAnalysis'][typ]).replace(',', '.')
+                info = {typ: new}
+            else:
+                info = {typ: str(mat['foldingAnalysis'][typ])}
+
+            data.update(info)
+        except ValueError:
+            data.update({typ: " "})
+
+    best_idx = int(mat['foldingAnalysis']["bestFoldingIndex"])
+
+    for typ in ["qualityMetric", "fractionMonomer"]:
+        try:
+            new = float(mat['foldingAnalysis'][typ].tolist()[best_idx])
+            info = {typ: new}
+            data.update(info)
+        except ValueError:
+            data.update({typ: " "})
+
     return data
 
 
-def main():
+def proc_input() -> Project:
+    def get_description() -> str:
+        return "{}\n {}\n {}".format(DESCRIPTION, __version__, __authors__)
 
+    parser = argparse.ArgumentParser(
+        description=get_description(),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("-i", "--input",
+                        help="input folder",
+                        type=str,
+                        default="./",
+                        )
+    parser.add_argument("-o", "--output",
+                        help="output folder",
+                        type=str,
+                        default="./AAA__database__"
+                        )
+    parser.add_argument("-d", "--datafile",
+                        help="database-file name",
+                        type=str,
+                        default="fdb"
+                        )
+
+    args = parser.parse_args()
+    project = Project(input=Path(args.input),
+                      output=Path(args.output),
+                      filename=args.datafile
+                      )
+    with ignored(FileExistsError):
+        os.mkdir(project.output)
+    return project
+
+
+def main():
     logging.basicConfig()
     handle = "folding-DB"
     logger = logging.getLogger(handle)
+    project = proc_input()
 
-    outputname = "database"
-    try:
-        os.mkdir("./" + outputname)
-    except FileExistsError:
-        pass
+    date_str = str(date.today().strftime("%y-%b-%d"))
+    filename = "{}-{}.csv".format(project.filename, date_str)
+    fdb_file = project.output / filename
 
-    filename = "./" + outputname + "/" + "foldingdatabase-" + \
-        str(date.today().strftime("%y-%b-%d")) + ".csv"
+    with ignored(FileNotFoundError):
+        os.remove(fdb_file)
 
-    try:
-        os.remove(filename)
+    for child in project.input.iterdir():
 
-    except FileNotFoundError:
-        pass
+        if child.name in FOLDER_EXCEPTION + [project.output]: continue
+        if child.name[-2:] == "__": continue
 
-    parent_folder = "../Foldingscreens_202002/"
-    folders = Path("../Foldingscreens_202002")
+        with get_file(logger, child, "*.json", IndexError):
+            json = list(child.glob("*.json")).pop()
+        with get_file(logger, child, "*.mat", IndexError):
+            mat = list(child.glob("*.mat")).pop()
 
-    for folder in folders.iterdir():
-        if folder.name in FOLDER_EXCEPTION + [outputname]:
-            continue
-        txt_file = glob.glob(parent_folder + folder.name + "/*.txt")
-        mat_file = glob.glob(parent_folder + folder.name + "/*.mat")
+        try: mat_data = process_mat_file(mat)
+        except Exception as e:
+            e_ = "info.mat file " + EXC_TXT[14:].format(child.name, e)
+            logger.error(e_)
 
-        if txt_file:
-            with open(txt_file[0], 'r', encoding="utf8") as gel_info:
-                jsons = glob.glob(parent_folder + folder.name + "/*.json")
+        design_name = mat_data["design_name"]
 
-                if jsons:
-                    json = jsons[0]
+        try: designdata = DesignData(json=json, name=design_name)
+        except Exception as e:
+            e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
+            logger.error(e_)
+        try: json_data = designdata.compute_data()
+        except Exception as e:
+            e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
+            logger.error(e_)
 
-                    try:
-                        for line in gel_info:
-                            if line.startswith("Design_name"):
-                                try:
+        json_data = designdata.prep_data_for_export()
+        data = {**mat_data, **json_data}
 
-                                    mat_data = read_mat(mat_file)
-
-                                    name = mat_data["design_name"]
-
-                                    designdata = designData.DesignData(
-                                        json=json, name=name)
-
-                                except Exception as e:
-                                    e_ = "nanodesign:  {} | Error: {}".format(
-                                        name, e)
-                                    logger.error(e_)
-                                try:
-                                    data = designdata.compute_data()
-                                    export_data(data=data, name=name,
-                                                outputname=outputname, filename=filename, mat_data=mat_data)
-                                except Exception as e:
-                                    e_ = "stats:       {} | Error: {}".format(
-                                        name, e)
-                                    logger.error(e_)
-
-                    except UnicodeDecodeError as e:
-                        e_ = "stats:       {} | Error: {}".format(
-                            folder.name, e)
-                        logger.error(e_)
-                else:
-                    e_ = "json missing:   | Folder: {}".format(folder.name)
-                    logger.warning(e_)
-        else:
-            e_ = "???  :          | Folder: {}".format(folder.name)
-            logger.warning(e_)
-
+        try: export_data(data=data, fdb_file=fdb_file,)
+        except Exception as e:
+            e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
+            logger.error(e_)
     return
 
 
