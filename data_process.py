@@ -15,11 +15,11 @@ from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROP
 from designData import DesignData
 
 
+
 __authors__ = ["Elija Feigl", "Kuorosh Zargari"]
 __version__ = "0.2"
 __descr__ = "processes database design files. matlabscript on IFS has to be\
              run first. creates database.csv in specified folder"
-
 
 def export_data(data: dict, fdb_file: IO) -> None:
     if not fdb_file.tell():  # true if empty
@@ -40,6 +40,7 @@ def process_mat_file(mat_file: IO) -> dict:
 
     best_idx = int(fold_info["bestFoldingIndex"])
     data = dict()
+
     for prop in GEL_PROPERTIES + FOLD_PROPERTIES:
         info = gel_info if prop in GEL_PROPERTIES else fold_info
         is_set = (prop in info.dtype.names)
@@ -98,6 +99,7 @@ def main():
     logging.basicConfig()
     handle = "folding-DB"
     logger = logging.getLogger(handle)
+
     project = proc_input()
 
     date_str = str(date.today().strftime("%y-%b-%d"))
