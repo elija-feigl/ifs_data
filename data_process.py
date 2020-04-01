@@ -17,31 +17,16 @@ from designData import DesignData
 
 __authors__ = ["Elija Feigl", "Kuorosh Zargari"]
 __version__ = "0.1"
-DESCRIPTION = "processes database design files. matlabscript on IFS has to be\
-              run first. creates database.csv in specified folder"
-FOLDER_EXCEPTION = ["Icon", ".DS_Store"]
+__descr__ = "processes database design files. matlabscript on IFS has to be\
+             run first. creates database.csv in specified folder"
 
 
-def export_data(data: dict, fdb_file: Path) -> None:
-    header = ", ".join([str(i) for i in data.keys()])
-    export_str = ", ".join([str(i) for i in data.values()])
-
-    try:
-        with open(fdb_file) as out:
-            has_header = csv.Sniffer().has_header(out.read(1024))
-            if not has_header:
-                out.write(header + "\n")
-
-        with open(fdb_file, mode="a") as out:
-            out.write(export_str + "\n")
-
-    except FileNotFoundError:
-        with open(fdb_file, mode="w+") as out:
-            out.write(header + "\n")
-        with open(fdb_file, mode="a") as out:
-            out.write(export_str + "\n")
-
-    return
+def export_data(data: dict, fdb_file: IO) -> None:
+    if not fdb_file.tell():  # true if empty
+        header = ", ".join(str(k) for k in data.keys())
+        fdb_file.write(header + "\n")
+    export = ", ".join(str(v) for v in data.values())
+    fdb_file.write(export + "\n")
 
 
 def process_mat_file(mat_file: IO) -> dict:
@@ -95,7 +80,7 @@ def process_mat_file(mat_file: IO) -> dict:
 
 def proc_input() -> Project:
     def get_description() -> str:
-        return "{}\n {}\n {}".format(DESCRIPTION, __version__, __authors__)
+        return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
 
     parser = argparse.ArgumentParser(
         description=get_description(),
@@ -135,44 +120,39 @@ def main():
 
     date_str = str(date.today().strftime("%y-%b-%d"))
     filename = "{}-{}.csv".format(project.filename, date_str)
-    fdb_file = project.output / filename
+    fdb_filepath = project.output / filename
 
-    with ignored(FileNotFoundError):
-        os.remove(fdb_file)
+    with open(fdb_filepath, mode="w+") as fdb_file:
+        for child in project.input.iterdir():
+            if child.name.startswith('.') or child.name[-2:] == "__": continue
+            with get_file(logger, child, "*.json", IndexError):
+                json = list(child.glob("*.json")).pop()
+            with get_file(logger, child, "*.mat", IndexError):
+                mat = list(child.glob("*.mat")).pop()
 
-    for child in project.input.iterdir():
+            try: mat_data = process_mat_file(mat)
+            except Exception as e:
+                e_ = "info.mat file " + EXC_TXT[14:].format(child.name, e)
+                logger.error(e_)
 
-        if child.name in FOLDER_EXCEPTION + [project.output]: continue
-        if child.name[-2:] == "__": continue
+            design_name = mat_data["design_name"]
 
-        with get_file(logger, child, "*.json", IndexError):
-            json = list(child.glob("*.json")).pop()
-        with get_file(logger, child, "*.mat", IndexError):
-            mat = list(child.glob("*.mat")).pop()
+            try: designdata = DesignData(json=json, name=design_name)
+            except Exception as e:
+                e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
+                logger.error(e_)
+            try: json_data = designdata.compute_data()
+            except Exception as e:
+                e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
+                logger.error(e_)
 
-        try: mat_data = process_mat_file(mat)
-        except Exception as e:
-            e_ = "info.mat file " + EXC_TXT[14:].format(child.name, e)
-            logger.error(e_)
+            json_data = designdata.prep_data_for_export()
+            data = {**mat_data, **json_data}
 
-        design_name = mat_data["design_name"]
-
-        try: designdata = DesignData(json=json, name=design_name)
-        except Exception as e:
-            e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
-            logger.error(e_)
-        try: json_data = designdata.compute_data()
-        except Exception as e:
-            e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
-            logger.error(e_)
-
-        json_data = designdata.prep_data_for_export()
-        data = {**mat_data, **json_data}
-
-        try: export_data(data=data, fdb_file=fdb_file,)
-        except Exception as e:
-            e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
-            logger.error(e_)
+            try: export_data(data=data, fdb_file=fdb_file)
+            except Exception as e:
+                e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
+                logger.error(e_)
     return
 
 
