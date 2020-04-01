@@ -11,12 +11,12 @@ from pathlib import Path
 from typing import IO
 from datetime import date
 
-from utils import Project, ignored, get_file, EXC_TXT
+from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES
 from designData import DesignData
 
 
 __authors__ = ["Elija Feigl", "Kuorosh Zargari"]
-__version__ = "0.1"
+__version__ = "0.2"
 __descr__ = "processes database design files. matlabscript on IFS has to be\
              run first. creates database.csv in specified folder"
 
@@ -28,53 +28,35 @@ def export_data(data: dict, fdb_file: IO) -> None:
     export = ", ".join(str(v) for v in data.values())
     fdb_file.write(export + "\n")
 
-
 def process_mat_file(mat_file: IO) -> dict:
-    data = dict()
+
     mat = sio.loadmat(mat_file, squeeze_me=True)
 
-    types = ['user', 'project', 'design_name', 'date',
-             'scaffold_type', 'lattice_type', 'scaffold_concentration',
-             'staple_concentration', 'gelsize', 'agarose_concentration',
-             'staining', 'mg_concentration', 'voltage', 'running_time',
-             'cooling']
+    try: gel_info = mat["gelInfo"]
+    except KeyError: raise
 
-    for typ in types:
-        try:
-            if ',' in str(mat['gelInfo'][typ]):
-                new = str(mat['gelInfo'][typ]).replace(',', '.')
-                info = {typ: new}
-            else:
-                info = {typ: str(mat['gelInfo'][typ])}
+    try: fold_info = mat["foldingAnalysis"]
+    except KeyError: raise
 
-            data.update(info)
-        except ValueError:
-            data.update({typ: " "})
+    best_idx = int(fold_info["bestFoldingIndex"])
+    data = dict()
+    for prop in GEL_PROPERTIES + FOLD_PROPERTIES:
+        info = gel_info if prop in GEL_PROPERTIES else fold_info
+        is_set = (prop in info.dtype.names)
+        if prop in ["qualityMetric", "fractionMonomer"] and is_set:
+            prop_str = str(info[prop].item()[best_idx])
+        elif is_set:
+            prop_str = str(info[prop]).replace(",", ".")
+        else:
+            prop_str = " "
+        data.update({prop: prop_str})
 
-    types2 = ["qualityMetric", "bestTscrn", "bestMgscrn"]
-
-    for typ in types2:
-        try:
-            if ',' in str(mat['foldingAnalysis'][typ]):
-                new = str(mat['foldingAnalysis'][typ]).replace(',', '.')
-                info = {typ: new}
-            else:
-                info = {typ: str(mat['foldingAnalysis'][typ])}
-
-            data.update(info)
-        except ValueError:
-            data.update({typ: " "})
-
-    best_idx = int(mat['foldingAnalysis']["bestFoldingIndex"])
-
-    for typ in ["qualityMetric", "fractionMonomer"]:
-        try:
-            new = float(mat['foldingAnalysis'][typ].tolist()[best_idx])
-            info = {typ: new}
-            data.update(info)
-        except ValueError:
-            data.update({typ: " "})
-
+    for prop in ["qualityMetric", "fractionMonomer"]:
+        if prop in fold_info.dtype.names:
+            prop_float = fold_info[prop].item()[best_idx]
+        else:
+            prop_float = 0
+        data.update({prop: prop_float})
     return data
 
 
@@ -124,7 +106,7 @@ def main():
 
     with open(fdb_filepath, mode="w+") as fdb_file:
         for child in project.input.iterdir():
-            if child.name.startswith('.') or child.name[-2:] == "__": continue
+            if child.name.startswith(".") or child.name[-2:] == "__": continue
             with get_file(logger, child, "*.json", IndexError):
                 json = list(child.glob("*.json")).pop()
             with get_file(logger, child, "*.mat", IndexError):
@@ -134,6 +116,7 @@ def main():
             except Exception as e:
                 e_ = "info.mat file " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
+                continue
 
             design_name = mat_data["design_name"]
 
@@ -141,10 +124,12 @@ def main():
             except Exception as e:
                 e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
+                continue
             try: json_data = designdata.compute_data()
             except Exception as e:
                 e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
+                continue
 
             json_data = designdata.prep_data_for_export()
             data = {**mat_data, **json_data}
@@ -153,6 +138,7 @@ def main():
             except Exception as e:
                 e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
+                continue
     return
 
 

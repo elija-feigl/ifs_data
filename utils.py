@@ -8,7 +8,13 @@ import contextlib
 
 
 EXC_TXT = "______________| Folder: {}\n     | Exception: {}"
-
+GEL_PROPERTIES = ["user", "project", "design_name", "date",
+                  "scaffold_type", "lattice_type", "scaffold_concentration",
+                  "staple_concentration", "gelsize", "agarose_concentration",
+                  "staining", "mg_concentration", "voltage", "running_time",
+                  "cooling"]
+FOLD_PROPERTIES = ["qualityMetric", "bestTscrn", "bestMgscrn", "qualityMetric",
+                   "fractionMonomer"]
 
 @attr.s(slots=True)
 class Project(object):
