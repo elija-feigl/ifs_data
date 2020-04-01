@@ -1,8 +1,13 @@
 #!/usr/bin/env python
-from nanodesign.converters import Converter
+# -*- coding: utf-8 -*-3
+
 import nanodesign as nd
 import numpy as np
 import os
+
+from nanodesign.converters import Converter
+
+from utils import get_statistics
 
 
 class DesignData(object):
@@ -32,7 +37,7 @@ class DesignData(object):
         self.long_domains = self.get_staples_with_long_domains()
         self.blunt_ends = self.get_blunt_ends()
 
-    def compute_data(self) -> dict:
+    def compute_data(self) -> None:
         data = {}
         data["name"] = self.name
         data["lattice_type"] = self.get_lattice_type()
@@ -59,7 +64,6 @@ class DesignData(object):
         data["co_possible"], data["co_density"] = self.get_co_density()
 
         self.data = data
-        return self.data
 
     def init_design(self):
         # seq_file = self.name + ".seq"
@@ -617,40 +621,20 @@ class DesignData(object):
                             blunt_ends.add(co)
         return blunt_ends
 
+    def prep_data_for_export(self) -> dict:
+        export = dict()
+        for name, value in self.data.items():
+            if name in ["co_set", "co_possible", "co_density"]:
+                for strand_name, subtypes in value.items():
+                    for typ, n_co in subtypes.items():
+                        export["{}-{}-{}".format(name, strand_name, typ)] = n_co
 
-def get_statistics(data_list, data_name):
-    """[summary]
-
-    Arguments:
-        data_list {[type]} -- [description]
-        data_name {[type]} -- [description]
-
-    Returns:
-        [type] -- [description]
-    """
-    return {data_name + "_avg": np.average(data_list),
-            data_name + "_std": np.std(data_list),
-            data_name + "_max": np.max(data_list),
-            data_name + "_min": np.min(data_list),
-            }
-
-
-def prep_data_for_export(data):
-    # TODO: split lists and sets in statistics (avg, std, min, max)
-    export = dict()
-    for name, value in data.items():
-        if name in ["co_set", "co_possible", "co_density"]:
-            for strand_name, subtypes in value.items():
-                for typ, n_co in subtypes.items():
-                    export["{}-{}-{}".format(name, strand_name, typ)] = n_co
-
-        elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks"]:
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-        elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
-            export[name] = len(value)
-        else:
-            export[name] = value
-
-    return export
+            elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks"]:
+                stats = get_statistics(value, name)
+                for stat_name, stat in stats.items():
+                    export[stat_name] = stat
+            elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
+                export[name] = len(value)
+            else:
+                export[name] = value
+        return export
