@@ -1,7 +1,12 @@
 #!/usr/bin/env python
-from nanodesign.converters import Converter
+# -*- coding: utf-8 -*-3
+
 import nanodesign as nd
 import numpy as np
+
+from nanodesign.converters import Converter
+
+from utils import get_statistics
 
 
 class DesignData(object):
@@ -31,7 +36,7 @@ class DesignData(object):
         self.long_domains = self.get_staples_with_long_domains()
         self.blunt_ends = self.get_blunt_ends()
 
-    def compute_data(self) -> dict:
+    def compute_data(self) -> None:
         data = {}
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
@@ -56,7 +61,6 @@ class DesignData(object):
         data["co_possible"], data["co_density"] = self.get_co_density()
 
         self.data = data
-        return self.data
 
     def init_design(self):
         # seq_file = self.name + ".seq"
@@ -609,83 +613,21 @@ class DesignData(object):
                             blunt_ends.add(co)
         return blunt_ends
 
+    def prep_data_for_export(self) -> dict:
+        export = dict()
+        for name, value in self.data.items():
+            if name in ["co_set", "co_possible", "co_density"]:
+                for strand_name, subtypes in value.items():
+                    for typ, n_co in subtypes.items():
+                        export["{}-{}-{}".format(name, strand_name, typ)] = n_co
 
-def get_statistics(data_list, data_name):
-    """[summary]
+            elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks"]:
+                stats = get_statistics(value, name)
+                for stat_name, stat in stats.items():
+                    export[stat_name] = stat
+            elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
+                export[name] = len(value)
+            else:
+                export[name] = value
 
-    Arguments:
-        data_list {[type]} -- [description]
-        data_name {[type]} -- [description]
-
-    Returns:
-        [type] -- [description]
-    """
-    return {data_name + "_avg": np.average(data_list),
-            data_name + "_std": np.std(data_list),
-            data_name + "_max": np.max(data_list),
-            data_name + "_min": np.min(data_list),
-            }
-
-
-def prep_data_for_export(data):
-    # TODO: split lists and sets in statistics (avg, std, min, max)
-    export = dict()
-    for name, value in data.items():
-        if name in ["co_set", "co_possible", "co_density"]:
-            for strand_name, subtypes in value.items():
-                for typ, n_co in subtypes.items():
-                    export["{}-{}-{}".format(name, strand_name, typ)] = n_co
-
-        elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks"]:
-            stats = get_statistics(value, name)
-            for stat_name, stat in stats.items():
-                export[stat_name] = stat
-        elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
-            export[name] = len(value)
-        else:
-            export[name] = value
-
-    return export
-
-
-"""
-def export_data(data: dict, name: str) -> None:
-
-    export = prep_data_for_export(data)
-    header = ", ".join([str(i) for i in export.keys()])
-    export_str = ", ".join([str(i) for i in export.values()])
-
-    try:
-        os.mkdir("out")
-    except FileExistsError:
-        pass
-    with open("./out/" + name + "-designdata.csv", mode="w+") as out:
-
-        out.write(header + "\n")
-        out.write(export_str + "\n")
-        # out.write("\nEND")
-    return
-
-
-def main():
-
-    # f = open(Path("./txt_file.txt"), 'rt', encoding="utf8")
-    # for line in f:
-    # if line.startswith('Project ='):
-    #    name = line[9:-1].strip()
-    #    break
-
-    print("master, I am awaiting the name of your design")
-    json = "TTcorr"
-    name = json
-    print("Thank you Sir")
-
-    designData = DesignData(name=name, json=json + ".json")
-    data = designData.compute_data()
-    export_data(data=data, name=name)
-    return
-
-
-if __name__ == "__main__":
-    main()
-"""
+        return export
