@@ -4,13 +4,13 @@ It will store structer data as a csv file in a folder called "out" in the reposi
 ]
 """
 
-import designData
+from designData import DesignData
 import os
 
 
 def export_data(data: dict, name: str) -> None:
 
-    export = designData.prep_data_for_export(data)
+    export = DesignData.prep_data_for_export(data)
     header = ", ".join([str(i) for i in export.keys()])
     export_str = ", ".join([str(i) for i in export.values()])
 
@@ -18,7 +18,7 @@ def export_data(data: dict, name: str) -> None:
         os.mkdir("out")
     except FileExistsError:
         pass
-    with open("./out/" + name + "-designdata.csv", mode="w+") as out:
+    with open("./out/" + name + "-designdata1.csv", mode="w+") as out:
 
         out.write(header + "\n")
         out.write(export_str + "\n")
@@ -33,7 +33,7 @@ def main():
     name = json
     print("Thank you Sir")
 
-    designdata = designData.DesignData(name=name, json=json + ".json")
+    designdata = DesignData(name=name, json=json + ".json")
     data = designdata.compute_data()
     export_data(data=data, name=name)
     return

@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-3
 
+from utils import get_statistics
 import nanodesign as nd
 import numpy as np
 import os
 
 from nanodesign.converters import Converter
-
-from utils import get_statistics
+from classes.crossover import Crossover
+pass
 
 
 class DesignData(object):
@@ -23,8 +24,8 @@ class DesignData(object):
         self.data: dict = {}
         self.n_st_domains = self.get_staple_domain()
         # crossover
-        self.all_co_tuples_list: list = self._get_all_co_tuple()
-        self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
+        self.crossovers = self.create_crossovers()
+        # self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
         self.full_co_list_seperate, self.full_co_list_packed = self._get_full_co_list()
         self.end_co_list = self._get_endloop_co_list()
         self.half_co_list = self._get_half_co_list()
@@ -64,6 +65,7 @@ class DesignData(object):
         data["co_possible"], data["co_density"] = self.get_co_density()
 
         self.data = data
+        return self.data
 
     def init_design(self):
         # seq_file = self.name + ".seq"
@@ -123,7 +125,8 @@ class DesignData(object):
             [base_minus] -- [base with on position down along the helix]
         """
         base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-        base_minus = self.get_base_from_hps(base.h, base.p - 1, base.is_scaf, dir=-1)
+        base_minus = self.get_base_from_hps(
+            base.h, base.p - 1, base.is_scaf, dir=-1)
 
         return base_plus, base_minus
 
@@ -271,9 +274,9 @@ class DesignData(object):
 
         return nicks
 
-    def _get_all_co_tuple(self) -> list:
+    def create_crossovers(self) -> list:
         all_co_tuples = set()
-        all_co_tuples_list = []
+        crossovers = []
         for strand in self.all_strands:
             if strand.is_scaffold:
 
@@ -283,35 +286,66 @@ class DesignData(object):
         for strand in self.all_strands:
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
-                    co_tuple = tuple()
+
+                    if base.is_scaf:
+                        is_scaf = True
+                    else:
+                        is_scaf = False
+
                     if base.up.h != base.h:
-                        co_tuple = (base, base.up)
-                        all_co_tuples.add(tuple(set(co_tuple)))
+                        bases = set(base, base.up)
+                        helix_row = []
+                        for base in bases:
+                            map_id_helices = self.dna_structure.structure_helices_map
+                            helix_row.append(
+                                map_id_helices[base.h].lattice_row)
+
+                        if helix_row[0] == helix_row[1]:
+                            is_vertical = False
+                        else:
+                            is_vertical = True
+
+                        coordinate = [(base.p, base.h), (base.up.p, base.up.h)]
+
+                        crossover = Crossover(typ=None,
+                                              is_scaf, is_vertical, coordinate, set(bases))
+                        crossovers.append(crossover)
+
                     elif base.down.h != base.h:
-                        co_tuple = (base.down, base)
-                        all_co_tuples.add(tuple(set(co_tuple)))
-        for co in all_co_tuples:
-            all_co_tuples_list.append(co)
+                        bases = set(base.down, base)
+                        helix_row = []
+                        for base in bases:
+                            map_id_helices = self.dna_structure.structure_helices_map
+                            helix_row.append(
+                                map_id_helices[base.h].lattice_row)
 
-        return all_co_tuples_list
+                        if helix_row[0] == helix_row[1]:
+                            is_vertical = False
+                        else:
+                            is_vertical = True
 
-    def _get_horozantal_vertical_co(self):
-        all_co_tuples_h = set()
-        all_co_tuples_v = set()
-        helix_row = []
-        map_id_helices = self.dna_structure.structure_helices_map
-        for co_tuple in self.all_co_tuples_list:
-            for base in co_tuple:
-                helix_row.append(map_id_helices[base.h].lattice_row)
-            # helix2_row = map_id_helices[co_tuple[1].helix].lattice_row
+                        for base in bases:
+                            coordinate.append((base.p, base.h))
 
-            if helix_row[0] == helix_row[1]:
-                all_co_tuples_h.add(co_tuple)
-            else:
-                all_co_tuples_v.add(co_tuple)
-            helix_row = []
+                        crossover = Crossover(typ=None,
+                                              is_scaf, is_vertical, coordinate, bases)
+                        crossovers.append(crossover)
 
-        return all_co_tuples_h, all_co_tuples_v
+                    # helix_row = []
+
+        self.crossovers = crossovers
+
+        return crossovers
+
+    # def _get_horozantal_vertical_co(self):
+    #     all_co_tuples_h = set()
+    #     all_co_tuples_v = set()
+    #     helix_row = []
+    #     map_id_helices = self.dna_structure.structure_helices_map
+
+    #     co = self.create_crossovers()
+
+    #     return co
 
     def _get_full_co_list(self) -> list:
         """[gets the full crossovers]
@@ -323,7 +357,7 @@ class DesignData(object):
         """
 
         full_co_list = []
-        for co in self.all_co_tuples_list:
+        for co in self.crossovers:
             co_neighbours = {"co_tuples_plus": tuple(),
                              "co_tuples_minus": tuple()
                              }
@@ -339,7 +373,7 @@ class DesignData(object):
 
             fullco = set()
             for typ in ["co_tuples_plus", "co_tuples_minus"]:
-                if co_neighbours[typ] in self.all_co_tuples_list:
+                if co_neighbours[typ] in self.crossovers:
                     fullco.add(co)
                     fullco.add(co_neighbours[typ])
                     full_co_list.append(frozenset(fullco))
@@ -361,7 +395,7 @@ class DesignData(object):
 
     def _get_endloop_co_list(self) -> list:
         end_co_list = []
-        for co in self.all_co_tuples_list:
+        for co in self.crossovers:
             for base in co:
                 base_plus = self.get_base_from_hps(
                     base.h, base.p + 1, base.is_scaf)
@@ -377,7 +411,7 @@ class DesignData(object):
     def _get_half_co_list(self) -> list:
         half_co_list = []
 
-        for co in self.all_co_tuples_list:
+        for co in self.crossovers:
             if (co not in self.end_co_list) and (co not in self.full_co_list_seperate):
                 half_co_list.append(co)
 
@@ -416,7 +450,8 @@ class DesignData(object):
         for strand in ["scaffold", "staple"]:
             data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
             for typ in ["v", "h"]:
-                data[strand]["co-" + typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
+                data[strand]["co-" +
+                             typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
         return data
 
     def get_insertion_deletion_density(self):
@@ -623,11 +658,12 @@ class DesignData(object):
 
     def prep_data_for_export(self) -> dict:
         export = dict()
-        for name, value in self.data.items():
+        for name, value in self.items():
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
-                        export["{}-{}-{}".format(name, strand_name, typ)] = n_co
+                        export["{}-{}-{}".format(name,
+                                                 strand_name, typ)] = n_co
 
             elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks"]:
                 stats = get_statistics(value, name)

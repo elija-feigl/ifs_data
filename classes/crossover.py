@@ -1,34 +1,18 @@
 import nanodesign
-import designData
+# from designData import DesignData
 
 
-class crossover(object):
+class Crossover(object):
 
-    def __init__(self):
+    def __init__(self, typ, is_scaf, is_vertical, coordinate, bases):
+        self.typ = typ
+        self.is_scaf = is_scaf
+        self.is_vertical = is_vertical
+        self.coordinate = coordinate
+        self.bases = bases
 
-    def _get_all_co_tuple(self) -> list:
-        all_co_tuples = set()
-        all_co_tuples_list = []
-        for strand in self.all_strands:
-            if strand.is_scaffold:
-
-                new_strand = self._close_strand(strand)
-                self.all_strands[strand.id] = new_strand
-
-        for strand in self.all_strands:
-            for base in strand.tour:
-                if self.dna_structure._check_base_crossover(base):
-                    co_tuple = tuple()
-                    if base.up.h != base.h:
-                        co_tuple = (base, base.up)
-                        all_co_tuples.add(tuple(set(co_tuple)))
-                    elif base.down.h != base.h:
-                        co_tuple = (base.down, base)
-                        all_co_tuples.add(tuple(set(co_tuple)))
-        for co in all_co_tuples:
-            all_co_tuples_list.append(co)
-
-        return all_co_tuples_list
+    def get_typ(self):
+        return
 
     def _get_horozantal_vertical_co(self):
         all_co_tuples_h = set()
@@ -58,7 +42,7 @@ class crossover(object):
         """
 
         full_co_list = []
-        for co in self.all_co_tuples_list:
+        for co in self.DesignData.all_co_tuples_list:
             co_neighbours = {"co_tuples_plus": tuple(),
                              "co_tuples_minus": tuple()
                              }
