@@ -284,54 +284,44 @@ class DesignData(object):
                 self.all_strands[strand.id] = new_strand
 
         for strand in self.all_strands:
+            # adds bases to based_checked which are a part of crossover to prevent not adding a crossover twice.
+            base_checker = set()
             for base in strand.tour:
-                if self.dna_structure._check_base_crossover(base):
+                if base not in base_checker:
+                    if self.dna_structure._check_base_crossover(base):
 
-                    if base.is_scaf:
-                        is_scaf = True
-                    else:
-                        is_scaf = False
+                        if base.is_scaf:
+                            is_scaf = True
+                        else:
+                            is_scaf = False
 
-                    if base.up.h != base.h:
-                        bases = set(base, base.up)
+                        if base.up.h != base.h:
+                            bases = (base, base.up)
+
+                        elif base.down.h != base.h:
+                            bases = (base.down, base)
+
                         helix_row = []
                         for base in bases:
                             map_id_helices = self.dna_structure.structure_helices_map
                             helix_row.append(
                                 map_id_helices[base.h].lattice_row)
 
-                        if helix_row[0] == helix_row[1]:
-                            is_vertical = False
-                        else:
-                            is_vertical = True
-
-                        coordinate = [(base.p, base.h), (base.up.p, base.up.h)]
-
-                        crossover = Crossover(typ=None,
-                                              is_scaf, is_vertical, coordinate, set(bases))
-                        crossovers.append(crossover)
-
-                    elif base.down.h != base.h:
-                        bases = set(base.down, base)
-                        helix_row = []
-                        for base in bases:
-                            map_id_helices = self.dna_structure.structure_helices_map
-                            helix_row.append(
-                                map_id_helices[base.h].lattice_row)
+                            base_checker.add(base)
 
                         if helix_row[0] == helix_row[1]:
                             is_vertical = False
                         else:
                             is_vertical = True
 
+                        coordinate = []
                         for base in bases:
                             coordinate.append((base.p, base.h))
 
-                        crossover = Crossover(typ=None,
+                        crossover = Crossover(None,
                                               is_scaf, is_vertical, coordinate, bases)
-                        crossovers.append(crossover)
-
-                    # helix_row = []
+                        if crossover not in crossovers:
+                            crossovers.append(crossover)
 
         self.crossovers = crossovers
 
