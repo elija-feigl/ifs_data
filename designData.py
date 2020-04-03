@@ -24,15 +24,13 @@ class DesignData(object):
         self.hps_base = self.init_hps()
         self.data: dict = {}
         self.n_st_domains = self.get_staple_domain()
-        # crossover
 
-        self.all_co_tuples_list = self._get_all_co_tuple()
-        # self.all_co_tuples_h, self.all_co_tuples_v = self._get_horozantal_vertical_co()
+        # crossover
+        self.all_co = self._get_all_co()
         self.full_co_list_seperate, self.full_co_list_packed = self._get_full_co_list()
         self.end_co_list = self._get_endloop()
         self.half_co_list = self._get_half_co()
-
-        self.crossovers = self.create_crossovers()
+        self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.creat_crossover_lists()
         self.stacks = self.get_stacks()
 
         self.st_helix_dict: dict = self.init_helix_dict()
@@ -279,65 +277,95 @@ class DesignData(object):
 
         return nicks
 
-    def create_crossovers(self, typ, co) -> list:
-        all_co_tuples = set()
+    def creat_crossover_lists(self):
+        """[this method creates crossover objects in the dna origami structure]
+
+        Returns:
+            [list] -- [all_crossovers: list of all crossover object]
+            [list] -- [full_crossovers: list of all full crossover object]
+            [list] -- [half_crossovers: list of all half crossover object]
+            [list] -- [endloops: list of all endloop object]
+        """
+        all_crossovers = list()
+        endloops = list()
+        full_crossovers = list()
+        half_crossovers = list()
+
+        for full_co in self.full_co_list_packed:
+            typ = 'full'
+            full_crossover = self.creat_crossover(typ, full_co)
+            full_crossovers.append(full_crossover)
+            all_crossovers.append(full_crossover)
+
+        for ends in self.end_co_list:
+            typ = 'end'
+            end = self.creat_crossover(typ, ends)
+            endloops.append(end)
+            all_crossovers.append(end)
+
+        for half in self.half_co_list:
+            typ = 'half'
+            half = self.creat_crossover(typ, half)
+            half_crossovers.append(half)
+            all_crossovers.append(half)
+
+        return all_crossovers, full_crossovers, half_crossovers, endloops
+
+    def creat_crossover(self, typ, co) -> list:
+        """[this function creats crossover objects with attributes which are available in crossover class]
+
+        Arguments:
+            typ {[str]} -- [crossover type: full, half, endloop]
+            co {[tuple]} -- [a resemblance of a crossover made of a tuple consisting two basis which indicates a crossover]
+
+        Returns:
+            crossover Object -- [description]
+        """
         crossovers = list()
         coordinate = list()
+        helix_row = list()
 
         if typ == 'full':
-            if co[0][0].is_scaf:
-                is_scaf = True
-            else:
-                is_scaf = False
-
-            helix_row = list()
-            for crossover in co:
-                for base in crossover:
-                    map_id_helices = self.dna_structure.structure_helices_map
-                    helix_row.append(
-                        map_id_helices[base.h].lattice_row)
-
-            if helix_row[0] == helix_row[1]:
-                is_vertical = False
-            else:
-                is_vertical = True
-
-            coordinate = list()
-
+            base_typ = co[0][0]
+            co_typ = co[0]
             for bases in co:
                 for base in bases:
                     coordinate.append([base.p, base.h])
-
         else:
-            if co[0].is_scaf:
-                is_scaf = True
-            else:
-                is_scaf = False
-
-            helix_row = list()
-            for base in co:
-                map_id_helices = self.dna_structure.structure_helices_map
-                helix_row.append(
-                    map_id_helices[base.h].lattice_row)
-
-            if helix_row[0] == helix_row[1]:
-                is_vertical = False
-            else:
-                is_vertical = True
+            base_typ = co[0]
+            co_typ = co
 
             for base in co:
                 coordinate.append((base.p, base.h))
 
+        if base_typ.is_scaf:
+            is_scaf = True
+        else:
+            is_scaf = False
+
+        for base in co_typ:
+            map_id_helices = self.dna_structure.structure_helices_map
+            helix_row.append(
+                map_id_helices[base.h].lattice_row)
+
+        if helix_row[0] == helix_row[1]:
+            is_vertical = False
+        else:
+            is_vertical = True
+
         crossover = Crossover(typ,
                               is_scaf, is_vertical, coordinate, co)
 
-        crossovers.append(crossover)
-
         return crossover
 
-    def _get_all_co_tuple(self) -> list:
+    def _get_all_co(self) -> list:
+        """[get a list of crossovers but not as objects but as a tuple of the two bases connected via a crossover]
+
+        Returns:
+            list -- [list of all crossovers]
+        """
         all_co_tuples = set()
-        all_co_tuples_list = list()
+        all_co = list()
         for strand in self.all_strands:
             if strand.is_scaffold:
 
@@ -355,12 +383,12 @@ class DesignData(object):
                         co_tuple = (base.down, base)
                         all_co_tuples.add(tuple(set(co_tuple)))
         for co in all_co_tuples:
-            all_co_tuples_list.append(co)
+            all_co.append(co)
 
-        return all_co_tuples_list
+        return all_co
 
     def _get_full_co_list(self) -> list:
-        """[gets the full crossovers]
+        """[gets the full crossovers as tuples of bases]
 
         Returns:
 
@@ -369,7 +397,7 @@ class DesignData(object):
         """
 
         full_co_list = list()
-        for co in self.all_co_tuples_list:
+        for co in self.all_co:
             co_neighbours = {"co_tuples_plus": tuple(),
                              "co_tuples_minus": tuple()
                              }
@@ -385,7 +413,7 @@ class DesignData(object):
 
             fullco = set()
             for typ in ["co_tuples_plus", "co_tuples_minus"]:
-                if co_neighbours[typ] in self.all_co_tuples_list:
+                if co_neighbours[typ] in self.all_co:
                     fullco.add(co)
                     fullco.add(co_neighbours[typ])
                     full_co_list.append(frozenset(fullco))
@@ -403,17 +431,11 @@ class DesignData(object):
             for co in full:
                 full_co_list_seperate.append(co)
 
-        full_crossovers = list()
-        for full_co in full_co_list_packed:
-            typ = 'full'
-            full_crossover = self.create_crossovers(typ, full_co)
-            full_crossovers.append(full_crossover)
-
-        return full_co_list_seperate, full_crossovers
+        return full_co_list_seperate, full_co_list_packed
 
     def _get_endloop(self) -> list:
         end_co_list = list()
-        for co in self.all_co_tuples_list:
+        for co in self.all_co:
             for base in co:
                 base_plus = self.get_base_from_hps(
                     base.h, base.p + 1, base.is_scaf)
@@ -423,21 +445,14 @@ class DesignData(object):
                 if (base_plus is None) or (base_minus is None):
                     if co not in end_co_list:
                         end_co_list.append(co)
-        endloops = list()
-        for ends in end_co_list:
-            typ = 'end'
-            endloops.append(self.create_crossovers(typ, ends))
-        return endloops
+
+        return end_co_list
 
     def _get_half_co(self) -> list:
         half_co_list = list()
-        halfs = list()
-        for co in self.all_co_tuples_list:
+        for co in self.all_co:
             if (co not in self._get_endloop()) and (co not in self.full_co_list_seperate):
                 half_co_list.append(co)
-        typ = 'half'
-        for half in half_co_list:
-            halfs.append(self.create_crossovers(typ, half))
 
         return half_co_list
 
