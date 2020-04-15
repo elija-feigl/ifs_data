@@ -29,7 +29,9 @@ def export_data(data: dict, name: str) -> None:
 def main():
 
     print("master, I am awaiting the name of your design")
-    json = "TTcorr"  # enter file name here. it has to be in the same location of this file.'
+
+    # enter file name here(it has to be in the same location of this file) or the file address.'
+    json = "TTcorr"
     name = json
     print("Thank you Sir")
 

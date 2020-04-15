@@ -689,9 +689,9 @@ class DesignData(object):
                             blunt_ends.add(co)
         return blunt_ends
 
-    def prep_data_for_export(self) -> dict:
+    def prep_data_for_export(data) -> dict:
         export = dict()
-        for name, value in self.items():
+        for name, value in data.items():
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
