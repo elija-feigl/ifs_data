@@ -482,8 +482,8 @@ class DesignData(object):
         for strand in ["scaffold", "staple"]:
             data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
             for typ in ["v", "h"]:
-                data[strand]["co-" +
-                             typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
+                data[strand][
+                    "co-" + typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
 
         return data
 

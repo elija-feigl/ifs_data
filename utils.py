@@ -16,6 +16,7 @@ GEL_PROPERTIES = ["user", "project", "design_name", "date",
 FOLD_PROPERTIES = ["qualityMetric", "bestTscrn", "bestMgscrn", "qualityMetric",
                    "fractionMonomer"]
 
+
 @attr.s(slots=True)
 class Project(object):
     input: Path = attr.ib()
