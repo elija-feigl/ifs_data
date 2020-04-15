@@ -63,9 +63,8 @@ class DesignData(object):
         data.update(self.divide_domain_lengths())
 
         # crossovers
-        data["co_set"] = self.get_n_scaf_staple_co_types()
+        data["co_set"] = self.classify_crossovers()
         data["co_possible"], data["co_density"] = self.get_co_density()
-        data["b"] = self.create_full_co()
         self.data = data
         return self.data
 
@@ -339,9 +338,9 @@ class DesignData(object):
                 coordinate.append((base.p, base.h))
 
         if base_typ.is_scaf:
-            is_scaf = True
+            strand_typ = 'scaffold'
         else:
-            is_scaf = False
+            strand_typ = 'staple'
 
         for base in co_typ:
             map_id_helices = self.dna_structure.structure_helices_map
@@ -354,7 +353,7 @@ class DesignData(object):
             is_vertical = True
 
         crossover = Crossover(typ,
-                              is_scaf, is_vertical, coordinate, co)
+                              strand_typ, is_vertical, coordinate, co)
 
         return crossover
 
@@ -451,46 +450,41 @@ class DesignData(object):
     def _get_half_co(self) -> list:
         half_co_list = list()
         for co in self.all_co:
-            if (co not in self._get_endloop()) and (co not in self.full_co_list_seperate):
+            if (co not in self.end_co_list) and (co not in self.full_co_list_seperate):
                 half_co_list.append(co)
 
         return half_co_list
 
-    def get_n_scaf_staple_co_types(self):
-        """ dependes on:
-                "full": self.full_co_list,
-                "half": self.half_co_list,
-                "end":  self.end_co_set
-            """
+    def classify_crossovers(self):
         data = {"scaffold": dict(), "staple": dict()}
-        types = {"full": self.full_co_list_seperate,
-                 "half": self.half_co_list,
-                 "end": self.end_co_list,
+        types = {"full": self.full_crossovers,
+                 "half": self.half_crossovers,
+                 "end": self.endloops,
                  }
 
         for typ, crossovers in types.items():
             co_subsets = {"scaffold": {"": set(), "-h": set(), "-v": set()},
                           "staple": {"": set(), "-h": set(), "-v": set()}}
-            for co in crossovers:
-                for base in co:
-                    strand = "scaffold" if base.is_scaf else "staple"
-                    co_subsets[strand][""].add(co)
-                    if co in self.all_co_tuples_h:
-                        co_subsets[strand]["-h"].add(co)
-                    else:
-                        co_subsets[strand]["-v"].add(co)
 
-            for s, direction_sets in co_subsets.items():  # scaffold, staple
-                for dir in direction_sets:  # h, v
-                    len_subset = len(co_subsets[s][dir])
-                    n_co = len_subset / 2 if typ == "full" else len_subset
-                    data[s][typ + dir] = n_co
+            for co in crossovers:
+                strand = "scaffold" if co.strand_typ == 'scaffold' else "staple"
+                co_subsets[strand][""].add(co)
+                if not co.is_vertical:
+                    co_subsets[strand]["-h"].add(co)
+                else:
+                    co_subsets[strand]["-v"].add(co)
+
+                for s, direction_sets in co_subsets.items():  # scaffold, staple
+                    for dir in direction_sets:  # h, v
+                        len_subset = len(co_subsets[s][dir])
+                        data[s][typ + dir] = len_subset
 
         for strand in ["scaffold", "staple"]:
             data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
             for typ in ["v", "h"]:
                 data[strand]["co-" +
                              typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
+
         return data
 
     def get_insertion_deletion_density(self):
@@ -671,7 +665,7 @@ class DesignData(object):
                     possible_crossovers[strand]["end"] += end
 
         # part2 get actual crossovers
-        set_crossovers = self.get_n_scaf_staple_co_types()
+        set_crossovers = self.classify_crossovers()
 
         co_density = dict()
         for strand in ["scaffold", "staple"]:
