@@ -15,11 +15,11 @@ from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROP
 from designData import DesignData
 
 
-
 __authors__ = ["Elija Feigl", "Kuorosh Zargari"]
 __version__ = "0.2"
 __descr__ = "processes database design files. matlabscript on IFS has to be\
              run first. creates database.csv in specified folder"
+
 
 def export_data(data: dict, fdb_file: IO) -> None:
     if not fdb_file.tell():  # true if empty
@@ -28,15 +28,20 @@ def export_data(data: dict, fdb_file: IO) -> None:
     export = ", ".join(str(v) for v in data.values())
     fdb_file.write(export + "\n")
 
+
 def process_mat_file(mat_file: IO) -> dict:
 
     mat = sio.loadmat(mat_file, squeeze_me=True)
 
-    try: gel_info = mat["gelInfo"]
-    except KeyError: raise
+    try:
+        gel_info = mat["gelInfo"]
+    except KeyError:
+        raise
 
-    try: fold_info = mat["foldingAnalysis"]
-    except KeyError: raise
+    try:
+        fold_info = mat["foldingAnalysis"]
+    except KeyError:
+        raise
 
     best_idx = int(fold_info["bestFoldingIndex"])
     data = dict()
@@ -108,13 +113,15 @@ def main():
 
     with open(fdb_filepath, mode="w+") as fdb_file:
         for child in project.input.iterdir():
-            if child.name.startswith(".") or child.name[-2:] == "__": continue
+            if child.name.startswith(".") or child.name[-2:] == "__":
+                continue
             with get_file(logger, child, "*.json", IndexError):
                 json = list(child.glob("*.json")).pop()
             with get_file(logger, child, "*.mat", IndexError):
                 mat = list(child.glob("*.mat")).pop()
 
-            try: mat_data = process_mat_file(mat)
+            try:
+                mat_data = process_mat_file(mat)
             except Exception as e:
                 e_ = "info.mat file " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
@@ -122,12 +129,14 @@ def main():
 
             design_name = mat_data["design_name"]
 
-            try: designdata = DesignData(json=json, name=design_name)
+            try:
+                designdata = DesignData(json=json, name=design_name)
             except Exception as e:
                 e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
                 continue
-            try: json_data = designdata.compute_data()
+            try:
+                designdata.compute_data()
             except Exception as e:
                 e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
@@ -136,7 +145,8 @@ def main():
             json_data = designdata.prep_data_for_export()
             data = {**mat_data, **json_data}
 
-            try: export_data(data=data, fdb_file=fdb_file)
+            try:
+                export_data(data=data, fdb_file=fdb_file)
             except Exception as e:
                 e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)

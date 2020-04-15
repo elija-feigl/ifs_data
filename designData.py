@@ -6,6 +6,8 @@ import nanodesign as nd
 import numpy as np
 import os
 import operator
+from pathlib import Path
+import argparse
 
 from nanodesign.converters import Converter
 from classes.crossover import Crossover
@@ -65,8 +67,8 @@ class DesignData(object):
         # crossovers
         data["co_set"] = self.classify_crossovers()
         data["co_possible"], data["co_density"] = self.get_co_density()
+
         self.data = data
-        return self.data
 
     def init_design(self):
         # seq_file = self.name + ".seq"
@@ -689,9 +691,9 @@ class DesignData(object):
                             blunt_ends.add(co)
         return blunt_ends
 
-    def prep_data_for_export(data) -> dict:
+    def prep_data_for_export(self) -> dict:
         export = dict()
-        for name, value in data.items():
+        for name, value in self.data.items():
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
@@ -707,3 +709,29 @@ class DesignData(object):
             else:
                 export[name] = value
         return export
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("-i", "--input",
+                        help="input file",
+                        type=str,
+                        default="TTcorr.json",
+                        )
+    args = parser.parse_args()
+    json = Path(args.input)
+    outname = "{}-stat.csv".format(json.name)
+    designdata = DesignData(json=json, name=json.name)
+    designdata.compute_data()
+    data = designdata.prep_data_for_export()
+    with open(outname, mode="w+") as outfile:
+        header = ",".join(str(k) for k in data.keys())
+        outfile.write(header + "\n")
+        export = ",".join(str(v) for v in data.values())
+        outfile.write(export + "\n")
+
+
+if __name__ == "__main__":
+    main()
