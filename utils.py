@@ -14,7 +14,7 @@ GEL_PROPERTIES = ["user", "project", "design_name", "date",
                   "staining", "mg_concentration", "voltage", "running_time",
                   "cooling"]
 FOLD_PROPERTIES = ["qualityMetric", "bestTscrn", "bestMgscrn", "qualityMetric",
-                   "fractionMonomer"]
+                   "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]
 
 
 @attr.s(slots=True)

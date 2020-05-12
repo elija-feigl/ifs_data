@@ -23,9 +23,9 @@ __descr__ = "processes database design files. matlabscript on IFS has to be\
 
 def export_data(data: dict, fdb_file: IO) -> None:
     if not fdb_file.tell():  # true if empty
-        header = ", ".join(str(k) for k in data.keys())
+        header = ",".join(str(k) for k in data.keys())
         fdb_file.write(header + "\n")
-    export = ", ".join(str(v) for v in data.values())
+    export = ",".join(str(v) for v in data.values())
     fdb_file.write(export + "\n")
 
 
@@ -49,7 +49,7 @@ def process_mat_file(mat_file: IO) -> dict:
     for prop in GEL_PROPERTIES + FOLD_PROPERTIES:
         info = gel_info if prop in GEL_PROPERTIES else fold_info
         is_set = (prop in info.dtype.names)
-        if prop in ["qualityMetric", "fractionMonomer"] and is_set:
+        if prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"] and is_set:
             prop_str = str(info[prop].item()[best_idx])
         elif is_set:
             prop_str = str(info[prop]).replace(",", ".")
@@ -57,7 +57,7 @@ def process_mat_file(mat_file: IO) -> dict:
             prop_str = " "
         data.update({prop: prop_str})
 
-    for prop in ["qualityMetric", "fractionMonomer"]:
+    for prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]:
         if prop in fold_info.dtype.names:
             prop_float = fold_info[prop].item()[best_idx]
         else:
@@ -111,7 +111,7 @@ def main():
     filename = "{}-{}.csv".format(project.filename, date_str)
     fdb_filepath = project.output / filename
 
-    with open(fdb_filepath, mode="w+") as fdb_file:
+    with open(fdb_filepath, mode="w+", encoding="utf-8") as fdb_file:
         for child in project.input.iterdir():
             if child.name.startswith(".") or child.name[-2:] == "__":
                 continue

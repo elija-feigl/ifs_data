@@ -11,7 +11,7 @@ import argparse
 
 from nanodesign.converters import Converter
 from classes.crossover import Crossover
-pass
+from statistics import mean
 
 
 class DesignData(object):
@@ -34,6 +34,7 @@ class DesignData(object):
         self.half_co_list = self._get_half_co()
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.creat_crossover_lists()
         self.stacks = self.get_stacks()
+        self.pos = self.full_scaff_type()
 
         self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
@@ -325,6 +326,8 @@ class DesignData(object):
         crossovers = list()
         coordinate = list()
         helix_row = list()
+        h = set()
+        p = set()
 
         if typ == 'full':
             base_typ = co[0][0]
@@ -332,12 +335,17 @@ class DesignData(object):
             for bases in co:
                 for base in bases:
                     coordinate.append([base.p, base.h])
+                    p.add(base.p)
+                    h.add(base.h)
+
         else:
             base_typ = co[0]
             co_typ = co
 
             for base in co:
                 coordinate.append((base.p, base.h))
+                p.add(base.p)
+                h.add(base.h)
 
         if base_typ.is_scaf:
             strand_typ = 'scaffold'
@@ -355,7 +363,7 @@ class DesignData(object):
             is_vertical = True
 
         crossover = Crossover(typ,
-                              strand_typ, is_vertical, coordinate, co)
+                              strand_typ, p, h, is_vertical, coordinate, co, None)
 
         return crossover
 
@@ -691,6 +699,53 @@ class DesignData(object):
                             blunt_ends.add(co)
         return blunt_ends
 
+    def full_scaff_type(self):
+        """[type of the full scaffold crossover depending on the position suggested by cadnano]
+        """
+        nearest_co = list()
+        types = list()
+        inf_full = list()
+        for full in self.full_crossovers:
+            if full.strand_typ == 'scaffold':
+                sub_new = np.Infinity
+                nearest_co = None
+                # find closest crossover
+                for co in self.all_crossovers:
+                    if co.strand_typ == 'staple':
+
+                        if co.h == full.h:
+                            sub = (mean(full.p) - mean(co.p))
+
+                            if abs(sub) <= abs(sub_new):
+                                sub_new = sub
+                                nearest_co = co
+
+                if sub_new is np.Infinity:
+                    inf_full.append(full)
+
+                # calculate type
+                if self.get_lattice_type() == 'Square':
+                    mod = sub_new % 32
+
+                    if 0 <= mod <= 11:
+                        typ = 1
+                        full.set_full_scaf_type(typ)
+                    elif 21 <= mod < 32:
+                        typ = 3
+                        full.set_full_scaf_type(typ)
+                    else:
+                        typ = 2
+                        full.set_full_scaf_type(typ)
+
+                else:
+                    mod = sub_new % 21
+                    if 0 <= mod <= 11:
+                        typ = 1
+                        full.set_full_scaf_type(typ)
+                    elif 11 < mod <= 21:
+                        typ = 3
+                        full.set_full_scaf_type(typ)
+
     def prep_data_for_export(self) -> dict:
         export = dict()
         for name, value in self.data.items():
@@ -718,7 +773,7 @@ def main():
     parser.add_argument("-i", "--input",
                         help="input file",
                         type=str,
-                        default="TTcorr.json",
+                        default="bulletv7.json",
                         )
     args = parser.parse_args()
     json = Path(args.input)
