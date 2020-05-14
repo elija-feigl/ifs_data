@@ -9,6 +9,7 @@ import argparse
 
 from nanodesign.converters import Converter
 from classes.crossover import Crossover
+from classes.nicks import Nick
 from statistics import mean
 import itertools
 
@@ -47,22 +48,22 @@ class DesignData(object):
         data = {}
         data["name"] = self.name
         data["lattice_type"] = self.get_lattice_type()
-        data["n_helices"] = len(self.dna_structure.structure_helices_map)
-        data["n_skips"] = self.get_n_skips()
-        data["n_nicks"] = len(self.nicks)
-        data["stacks"] = len(self.get_stacks())
-        data["n_stacks"] = self.get_n_stacks()
-        data["loops"] = self.loops_length_list
+        data["#_helices"] = len(self.dna_structure.structure_helices_map)
+        data["#_skips"] = self.get_n_skips()
+        data["#_nicks"] = len(self.nicks)
+        data["#_stacks"] = len(self.get_stacks())
+        data["stacks_length"] = self.get_n_stacks()
+        data["loop_length"] = self.loops_length_list
         data.update(self.get_insertion_deletion_density())
-        data["n_blunt_ends"] = len(self.get_blunt_ends())
+        data["#_blunt_ends"] = len(self.get_blunt_ends())
 
         # staple stats
-        data["n_staples"] = len(self.get_all_staple())
+        data["#_staples"] = len(self.get_all_staple())
         data["staple_length"] = self.get_staples_length()
         data["helices_staples_pass"] = list(self.init_helix_dict().values())
 
         # domains
-        data["n_staple_domain"] = self.get_staple_domain()
+        data["#_staple_domain"] = self.get_staple_domain()
         data["long_domains"] = self.get_staples_with_long_domains()
         data.update(self.divide_domain_lengths())
 
@@ -275,9 +276,18 @@ class DesignData(object):
                 base.h, base.p - 1, base.is_scaf, dir=-1)
             if base_plus in self.last_bases:
                 # order of nick is always (first,last)
-                nicks.append((base, base_plus))
+                bases = (base, base_plus)
+                p = (base.p, base_plus.p)
+                h = (base.h, base_plus.h)
+                nick = Nick(bases, set(p), set(h))
+                nicks.append(nick)
+
             elif base_minus in self.last_bases:
-                nicks.append((base, base_minus))
+                bases = (base, base_minus)
+                p = (base.p, base_minus.p)
+                h = (base.h, base_minus.h)
+                nick = Nick(bases, set(p), set(h))
+                nicks.append(nick)
 
         return nicks
 
@@ -301,11 +311,11 @@ class DesignData(object):
             full_crossovers.append(full_crossover)
             all_crossovers.append(full_crossover)
 
-        for ends in self.end_co_list:
+        for end in self.end_co_list:
             typ = 'end'
-            end = self.creat_crossover(typ, ends)
-            endloops.append(end)
-            all_crossovers.append(end)
+            endloop = self.creat_crossover(typ, end)
+            endloops.append(endloop)
+            all_crossovers.append(endloop)
 
         for half in self.half_co_list:
             typ = 'half'
@@ -340,7 +350,6 @@ class DesignData(object):
                     coordinate.append([base.p, base.h])
                     p.add(base.p)
                     h.add(base.h)
-
         else:
             base_typ = co[0]
             co_typ = co
@@ -814,7 +823,7 @@ class DesignData(object):
                         export["{}-{}-{}".format(name,
                                                  strand_name, typ)] = n_co
 
-            elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "n_stacks", "loops"]:
+            elif name in ["staple_length", "helices_staples_pass", "#_staple_domain", "long_domains", "stacks_length", "loop_length"]:
                 stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat

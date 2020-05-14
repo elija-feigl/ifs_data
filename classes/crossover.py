@@ -30,3 +30,9 @@ class Crossover(object):
 
     def get_typ(self, typ):
         self.typ = typ
+
+    def get_crossover_position(self, p):
+        self.p = p
+
+    def get_crossover_helix(self, h):
+        self.h = h
