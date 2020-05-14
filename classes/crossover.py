@@ -1,7 +1,4 @@
 
-import nanodesign
-
-
 class Crossover(object):
 
     def __init__(self, typ, strand_typ, p, h, is_vertical, coordinate, bases, scaff_full_type):
