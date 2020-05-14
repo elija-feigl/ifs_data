@@ -35,7 +35,7 @@ class DesignData(object):
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.creat_crossover_lists()
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
-        self.loops_length_list = self.find_loops()
+        self.loops_length_list = self.get_loops()
 
         self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
@@ -776,7 +776,7 @@ class DesignData(object):
                             blunt_ends.add(co)
         return blunt_ends
 
-    def find_loops(self):
+    def get_loops(self):
         loops = list()
         scaffolds = list()
         for strand in self.all_strands:
@@ -831,6 +831,7 @@ class DesignData(object):
                 export[name] = len(value)
             else:
                 export[name] = value
+
         return export
 
 
