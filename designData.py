@@ -6,12 +6,13 @@ import nanodesign as nd
 import numpy as np
 from pathlib import Path
 import argparse
+import itertools
+import pandas as pd
 
 from nanodesign.converters import Converter
 from classes.crossover import Crossover
 from classes.nicks import Nick
 from statistics import mean
-import itertools
 
 
 class DesignData(object):
@@ -36,6 +37,7 @@ class DesignData(object):
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
         self.loops_length_list = self.get_loops()
+        self.df_crossover = self.crossover_dataframe()
 
         self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
@@ -378,6 +380,24 @@ class DesignData(object):
                               strand_typ, p, h, is_vertical, coordinate, co, None)
 
         return crossover
+
+    def crossover_dataframe(self):
+        data = {
+            'type': [], 'strand_tape': [], 'position': [], 'helix': [],
+            'orientation': [], 'coordinates': [], 'full_scaffold_type': []
+        }
+        for co in self.all_crossovers:
+            data['type'] = co.type
+            data['strand_tape'] = co.strand_typ
+            data['position'] = co.p
+            data['helix'] = co.h
+            data['orientation'] = co.is_vertical
+            data['coordinates'] = co.coordinate
+            data['full_scaffold_type'] = co.scaff_full_type
+
+        df_crossover = pd.DataFrame(data, column=[
+                                    'type', 'strand_tape', 'position', 'helix', 'orientation', 'coordinates', 'full_scaffold_type'])
+        return df_crossover
 
     def full_scaff_type(self):
         """[type of the full scaffold crossover depending on the position suggested by cadnano]
@@ -803,8 +823,8 @@ class DesignData(object):
                 loops.append(sub)
 
             for half in self.half_crossovers:
-                index = [scaff.tour.index(bases.across)
-                         for bases in half.bases]
+                index = [scaff.tour.index(base.across)
+                         for base in half.bases]
                 sub_list = list(itertools.product(index, repeat=2))
                 sub = max((x[0] - x[1]) for x in sub_list) - 1
                 if sub > len(scaff.tour) / 2:
