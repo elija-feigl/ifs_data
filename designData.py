@@ -23,10 +23,14 @@ class DesignData(object):
         self.dna_structure, self.dna_structure_skips = self.init_design()
         self.all_strands: list = self.dna_structure.strands
         self.all_bases: list = self.get_all_bases()
+        self.domain_data: dict = {}
         self.all_staples: list = self.get_all_staple()
+        self.staple_helix_dict: dict = self.init_helix_dict()
+        self.num_staple_helix_dict = {}
         self.hps_base = self.init_hps()
         self.data: dict = {}
         self.n_st_domains = self.get_staple_domain()
+        self.df_staple = self.staple_dataframe()
 
         # crossover
         self.all_co = self._get_all_co()
@@ -36,10 +40,9 @@ class DesignData(object):
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.creat_crossover_lists()
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
-        self.loops_length_list = self.get_loops()
         self.df_crossover = self.crossover_dataframe()
+        self.loops_length_list = self.get_loops()
 
-        self.st_helix_dict: dict = self.init_helix_dict()
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.helices = self.dna_structure.structure_helices_map
         self.nicks: list = self.get_nicks()
@@ -62,7 +65,8 @@ class DesignData(object):
         # staple stats
         data["#_staples"] = len(self.get_all_staple())
         data["staple_length"] = self.get_staples_length()
-        data["helices_staples_pass"] = list(self.init_helix_dict().values())
+        data["helices_staples_pass"] = list(
+            self.num_staple_helix_dict.values())
 
         # domains
         data["#_staple_domain"] = self.get_staple_domain()
@@ -170,9 +174,10 @@ class DesignData(object):
         n_st_domains = list()  # number of domains for each staple
         for strand in self.all_strands:
             if not strand.is_scaffold:
-                data = {str(strand.id): strand.domain_list}
+                data = {strand: strand.domain_list}
                 domain_data.update(data)
                 data = {}
+        self.domain_data = domain_data
         for strand in domain_data.keys():
             n_st_domains.append(len(domain_data[strand]))
         # domin_data : is a dict that map the strand ID to the domains it has
@@ -194,6 +199,37 @@ class DesignData(object):
                 n_long_domains.append(len(dummy))
 
         return n_long_domains
+
+    def staple_long_domian(self, staple):
+        n = 0
+        for domain in staple.domain_list:
+            if len(domain.base_list) >= 14:
+                n += 1
+        return n
+
+    def staple_dataframe(self):
+        data = {
+            'strand_ID': [], 'staple_length': [], '#_helices_staples_pass': [], 'helices_id_staples_pass': [], "#_staple_domain": [], "#_long_domains": [],
+            'first_base(p,h)': [], 'last_base(p,h)': []
+        }
+        for staple in self.all_staples:
+            data['strand_ID'].append(staple.id)
+            data['staple_length'].append(len(staple.tour))
+            data['#_helices_staples_pass'].append(
+                len(self.staple_helix_dict[staple]))
+            data['helices_id_staples_pass'].append(
+                self.staple_helix_dict[staple])
+            data["#_staple_domain"].append(len(self.domain_data[staple]))
+            data['#_long_domains'].append(self.staple_long_domian(staple))
+            first = (staple.tour[0].p, staple.tour[0].h)
+            data['first_base(p,h)'].append(first)
+            last = (staple.tour[-1].p, staple.tour[-1].h)
+            data['last_base(p,h)'].append(last)
+        df_staple = pd.DataFrame(data, columns=[
+            'strand_ID', 'staple_length', '#_helices_staples_pass', 'helices_id_staples_pass', '#_staple_domain', '#_long_domains', 'first_base(p,h)', 'last_base(p,h)'])
+        df_staple.to_csv(r'staple.csv')
+
+        return df_staple
 
     def divide_domain_lengths(self) -> dict:
         long_st_domain = list()
@@ -243,8 +279,10 @@ class DesignData(object):
         """
         [creates a dict with staple ID as key and the number of helices that it passes through as values]
         """
-        st_helix_dict = {}
+        staple_helix_dict = {}
+        num_staple_helix_dict = {}
         helices_list = list()
+        helices_length_list = list()
         for strand in self.all_staples:
             helices = set()
             helices.add(strand.tour[0].h)
@@ -252,12 +290,14 @@ class DesignData(object):
                 if self.dna_structure._check_base_crossover(base):
                     if base.h not in helices:
                         helices.add(base.h)
-            helices_list.append(len(helices))
+            helices_length_list.append(len(helices))
+            helices_list.append(helices)
 
             if not strand.is_scaffold:
-                st_helix_dict.update({str(strand.id): helices_list[-1]})
-
-        return st_helix_dict
+                staple_helix_dict.update({strand: helices_list[-1]})
+                num_staple_helix_dict.update({strand: len(helices_list[-1])})
+        self.num_staple_helix_dict = num_staple_helix_dict
+        return staple_helix_dict
 
     def _get_first_last_bases_of_strands(self) -> list:
         first_bases = set()
@@ -266,6 +306,12 @@ class DesignData(object):
             if not strand.is_scaffold:
                 first_bases.add(strand.tour[0])
                 last_bases.add(strand.tour[-1])
+
+        return first_bases, last_bases
+
+    def first_last_strand_base(self, staple):
+        first_bases = staple.tour[0]
+        last_bases = staple.tour[-1]
 
         return first_bases, last_bases
 
@@ -372,9 +418,9 @@ class DesignData(object):
                 map_id_helices[base.h].lattice_row)
 
         if helix_row[0] == helix_row[1]:
-            is_vertical = False
+            is_vertical = 'horizontal'
         else:
-            is_vertical = True
+            is_vertical = 'vertical'
 
         crossover = Crossover(typ,
                               strand_typ, p, h, is_vertical, coordinate, co, None)
@@ -387,16 +433,17 @@ class DesignData(object):
             'orientation': [], 'coordinates': [], 'full_scaffold_type': []
         }
         for co in self.all_crossovers:
-            data['type'] = co.type
-            data['strand_tape'] = co.strand_typ
-            data['position'] = co.p
-            data['helix'] = co.h
-            data['orientation'] = co.is_vertical
-            data['coordinates'] = co.coordinate
-            data['full_scaffold_type'] = co.scaff_full_type
+            data['type'].append(co.typ)
+            data['strand_tape'].append(co.strand_typ)
+            data['position'].append(co.p)
+            data['helix'].append(co.h)
+            data['orientation'].append(co.is_vertical)
+            data['coordinates'].append(co.coordinate)
+            data['full_scaffold_type'].append(co.scaff_full_type)
 
-        df_crossover = pd.DataFrame(data, column=[
+        df_crossover = pd.DataFrame(data, columns=[
                                     'type', 'strand_tape', 'position', 'helix', 'orientation', 'coordinates', 'full_scaffold_type'])
+        # df_crossover.to_csv(r'File Name.csv')
         return df_crossover
 
     def full_scaff_type(self):
@@ -804,23 +851,23 @@ class DesignData(object):
                 scaffolds.append(strand)
 
         for scaff in scaffolds:
-            for full in self.full_crossovers:
+            # for full in self.full_crossovers:
 
-                if full.strand_typ == 'scaffold':
-                    index = [scaff.tour.index(bases)
-                             for bases in sum(full.bases, ())]
-                else:
-                    index = [scaff.tour.index(bases.across)
-                             for bases in sum(full.bases, ())]
-                if 0 in index:
-                    index.pop(0)
-                sub_list = list(itertools.product(index, repeat=2))
-                sub = max((x[0] - x[1]) for x in sub_list) - 1
+            #     if full.strand_typ == 'scaffold':
+            #         index = [scaff.tour.index(bases)
+            #                  for bases in sum(full.bases, ())]
+            #     else:
+            #         index = [scaff.tour.index(bases.across)
+            #                  for bases in sum(full.bases, ())]
+            #     if 0 in index:
+            #         index.pop(0)
+            #     sub_list = list(itertools.product(index, repeat=2))
+            #     sub = max((x[0] - x[1]) for x in sub_list) - 1
 
-                if sub > len(scaff.tour) / 2:
-                    sub = len(scaff.tour) - sub
+            #     if sub > len(scaff.tour) / 2:
+            #         sub = len(scaff.tour) - sub
 
-                loops.append(sub)
+            #     loops.append(sub)
 
             for half in self.half_crossovers:
                 index = [scaff.tour.index(base.across)
