@@ -632,16 +632,16 @@ class DesignData(object):
                  }
 
         for typ, crossovers in types.items():
-            co_subsets = {"scaffold": {"": set(), "-h": set(), "-v": set()},
-                          "staple": {"": set(), "-h": set(), "-v": set()}}
+            co_subsets = {"scaffold": {"": set(), "_h": set(), "_v": set()},
+                          "staple": {"": set(), "_h": set(), "_v": set()}}
 
             for co in crossovers:
                 strand = "scaffold" if co.strand_typ == 'scaffold' else "staple"
                 co_subsets[strand][""].add(co)
                 if not co.is_vertical:
-                    co_subsets[strand]["-h"].add(co)
+                    co_subsets[strand]["_h"].add(co)
                 else:
-                    co_subsets[strand]["-v"].add(co)
+                    co_subsets[strand]["_v"].add(co)
 
                 for s, direction_sets in co_subsets.items():  # scaffold, staple
                     for dir in direction_sets:  # h, v
@@ -652,7 +652,7 @@ class DesignData(object):
             data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
             for typ in ["v", "h"]:
                 data[strand][
-                    "co-" + typ] = (data[strand]["half-" + typ] + data[strand]["full-" + typ])
+                    "co_" + typ] = (data[strand]["half_" + typ] + data[strand]["full_" + typ])
 
         return data
 
@@ -804,8 +804,8 @@ class DesignData(object):
                 co_list = co_list[:-1]
             return n_ends, len(co_list) / 2
 
-        possible_crossovers = {"scaffold": {"co": 0, "co-h": 0, "co-v": 0, "end": 0},
-                               "staple": {"co": 0, "co-h": 0, "co-v": 0, "end": 0}
+        possible_crossovers = {"scaffold": {"co": 0, "co_h": 0, "co_v": 0, "end": 0},
+                               "staple": {"co": 0, "co_h": 0, "co_v": 0, "end": 0}
                                }
         # part 1: number of possible crossovers
         helices = self.dna_structure.structure_helices_map.values()
@@ -830,7 +830,7 @@ class DesignData(object):
                              ]
                     end, co = cleanup_co(sorted(x))
                     possible_crossovers[strand]["co"] += co
-                    possible_crossovers[strand]["co-" + typ] += co
+                    possible_crossovers[strand]["co_" + typ] += co
                     possible_crossovers[strand]["end"] += end
 
         # part2 get actual crossovers
@@ -925,7 +925,7 @@ def main():
     parser.add_argument("-i", "--input",
                         help="input file",
                         type=str,
-                        default="test.json",
+                        default="TTcorr.json",
                         )
     args = parser.parse_args()
     json = Path(args.input)
