@@ -60,18 +60,18 @@ class DesignData(object):
         data["n_nicks"] = len(self.nicks)
         data["n_stacks"] = len(self.get_stacks())
         data["stacks_length"] = self.get_n_stacks()
-        data["loop_length"] = self.loops_length_list
+        data["loops_length"] = self.loops_length_list
         data.update(self.get_insertion_deletion_density())
-        data["n_blunt_ends"] = len(self.get_blunt_ends())
+        data["n_bluntends"] = len(self.get_blunt_ends())
 
         # staple stats
         data["n_staples"] = len(self.get_all_staple())
-        data["length"] = self.get_staples_length()
+        data["staples_length"] = self.get_staples_length()
         data["helices_staples_pass"] = list(
             self.num_staple_helix_dict.values())
 
         # domains
-        data["n_domains"] = self.get_staple_domain()
+        data["n_staples_domains"] = self.get_staple_domain()
         data["long_domains"] = self.get_staples_with_long_domains()
         data.update(self.divide_domain_lengths())
 
@@ -233,7 +233,7 @@ class DesignData(object):
 
         df_staple = pd.DataFrame(data, columns=list(data.keys())
                                  )
-        df_staple.to_csv(r'staple.csv')
+        # df_staple.to_csv(r'staple.csv')
 
         return df_staple
 
@@ -448,7 +448,8 @@ class DesignData(object):
             data['full_scaffold_type'].append(co.scaff_full_type)
 
         df_crossover = pd.DataFrame(data, columns=list(data.keys()))
-        df_crossover.to_csv(r'crossover_df.csv')
+        # df_crossover.to_csv(r'crossover_df.csv')
+
         return df_crossover
 
     def full_scaff_type(self):
@@ -909,7 +910,7 @@ class DesignData(object):
                         export["{}_{}_{}".format(name,
                                                  strand_name, typ)] = n_co
 
-            elif name in ["length", "helices_staples_pass", "n_domain", "long_domains", "stacks_length", "loop_length"]:
+            elif name in ["staples_length", "helices_staples_pass", "n_staples_domains", "long_domains", "stacks_length", "loops_length"]:
                 stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
