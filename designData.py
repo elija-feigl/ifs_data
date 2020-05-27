@@ -903,7 +903,7 @@ class DesignData(object):
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
-                        export["{}-{}-{}".format(name,
+                        export["{}_{}_{}".format(name,
                                                  strand_name, typ)] = n_co
 
             elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "stacks_length", "loop_length"]:
