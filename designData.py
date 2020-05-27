@@ -25,11 +25,13 @@ class DesignData(object):
         self.all_bases: list = self.get_all_bases()
         self.domain_data: dict = {}
         self.all_staples: list = self.get_all_staple()
-        self.num_staple_helix_dict = {}
+        self.num_staple_helix_dict = dict()
         self.staple_helix_dict: dict = self.init_helix_dict()
         self.hps_base = self.init_hps()
         self.data: dict = {}
+        self.staple_domains_length = dict()
         self.n_st_domains = self.get_staple_domain()
+        self.long_domains = self.get_staples_with_long_domains()
         self.df_staple = self.staple_dataframe()
 
         # crossover
@@ -47,7 +49,6 @@ class DesignData(object):
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.helices = self.dna_structure.structure_helices_map
         self.nicks: list = self.get_nicks()
-        self.long_domains = self.get_staples_with_long_domains()
         self.blunt_ends = self.get_blunt_ends()
 
     def compute_data(self) -> None:
@@ -65,12 +66,12 @@ class DesignData(object):
 
         # staple stats
         data["n_staples"] = len(self.get_all_staple())
-        data["staple_length"] = self.get_staples_length()
+        data["length"] = self.get_staples_length()
         data["helices_staples_pass"] = list(
             self.num_staple_helix_dict.values())
 
         # domains
-        data["n_staple_domain"] = self.get_staple_domain()
+        data["n_domains"] = self.get_staple_domain()
         data["long_domains"] = self.get_staples_with_long_domains()
         data.update(self.divide_domain_lengths())
 
@@ -192,12 +193,16 @@ class DesignData(object):
         """
         n_long_domains = list()
         for strand in self.all_strands:
+            lengths = list()
             if not strand.is_scaffold:
                 dummy = list()
                 for domain in strand.domain_list:
+                    lengths.append(len(domain.base_list))
                     if len(domain.base_list) >= 14:
                         dummy.append(strand)
                 n_long_domains.append(len(dummy))
+
+            self.staple_domains_length[strand] = lengths
 
         return n_long_domains
 
@@ -210,24 +215,24 @@ class DesignData(object):
 
     def staple_dataframe(self):
         data = {
-            'strand_ID': [], 'staple_length': [], 'n_helices_staples_pass': [], 'helices_id_staples_pass': [], "n_staple_domain": [], "n_long_domains": [],
-            'first_base(p,h)': [], 'last_base(p,h)': []
+            'ID': [], 'length': [], 'n_helices_it_passes': [], 'helices_ID_it_passes': [], "n_domains": [], "domain_lengths": [],
+            "n_long_domains": [], 'position_5prime': []
         }
         for staple in self.all_staples:
-            data['strand_ID'].append(staple.id)
-            data['staple_length'].append(len(staple.tour))
-            data['n_helices_staples_pass'].append(
+            data['ID'].append(staple.id)
+            data['length'].append(len(staple.tour))
+            data['n_helices_it_passes'].append(
                 len(self.staple_helix_dict[staple]))
-            data['helices_id_staples_pass'].append(
-                self.staple_helix_dict[staple])
-            data["n_staple_domain"].append(len(self.domain_data[staple]))
+            data['helices_ID_it_passes'].append(
+                list(self.staple_helix_dict[staple]))
+            data["n_domains"].append(len(self.domain_data[staple]))
+            data['domain_lengths'].append(self.staple_domains_length[staple])
             data['n_long_domains'].append(self.staple_long_domian(staple))
-            first = (staple.tour[0].p, staple.tour[0].h)
-            data['first_base(p,h)'].append(first)
-            last = (staple.tour[-1].p, staple.tour[-1].h)
-            data['last_base(p,h)'].append(last)
+            first = (staple.tour[0].h, staple.tour[0].p)
+            data['position_5prime'].append(first)
+
         df_staple = pd.DataFrame(data, columns=[
-            'strand_ID', 'staple_length', 'n_helices_staples_pass', 'helices_id_staples_pass', 'n_staple_domain', 'n_long_domains', 'first_base(p,h)', 'last_base(p,h)'])
+            'ID', 'length', 'n_helices_it_passes', 'helices_ID_it_passes', 'n_domains', 'domain_lengths', 'n_long_domains', 'position_5prime'])
         df_staple.to_csv(r'staple.csv')
 
         return df_staple
@@ -397,7 +402,7 @@ class DesignData(object):
             co_typ = co[0]
             for bases in co:
                 for base in bases:
-                    coordinate.append([base.p, base.h])
+                    coordinate.append((base.p, base.h))
                     p.add(base.p)
                     h.add(base.h)
         else:
@@ -431,21 +436,20 @@ class DesignData(object):
 
     def crossover_dataframe(self):
         data = {
-            'type': [], 'strand_tape': [], 'position': [], 'helix': [],
-            'orientation': [], 'coordinates': [], 'full_scaffold_type': []
+            'type': [], 'strand_type': [], 'helices': [],
+            'orientation': [], 'positions': [], 'full_scaffold_type': []
         }
         for co in self.all_crossovers:
             data['type'].append(co.typ)
-            data['strand_tape'].append(co.strand_typ)
-            data['position'].append(co.p)
-            data['helix'].append(co.h)
+            data['strand_type'].append(co.strand_typ)
+            data['helices'].append(tuple(co.h))
             data['orientation'].append(co.is_vertical)
-            data['coordinates'].append(co.coordinate)
+            data['positions'].append(co.coordinate)
             data['full_scaffold_type'].append(co.scaff_full_type)
 
         df_crossover = pd.DataFrame(data, columns=[
-                                    'type', 'strand_tape', 'position', 'helix', 'orientation', 'coordinates', 'full_scaffold_type'])
-        # df_crossover.to_csv(r'File Name.csv')
+                                    'type', 'strand_type', 'helices', 'orientation', 'positions', 'full_scaffold_type'])
+        df_crossover.to_csv(r'crossover_df.csv')
         return df_crossover
 
     def full_scaff_type(self):
@@ -906,7 +910,7 @@ class DesignData(object):
                         export["{}_{}_{}".format(name,
                                                  strand_name, typ)] = n_co
 
-            elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "stacks_length", "loop_length"]:
+            elif name in ["length", "helices_staples_pass", "n_domain", "long_domains", "stacks_length", "loop_length"]:
                 stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
