@@ -25,18 +25,19 @@ class DesignData(object):
         self.all_bases: list = self.get_all_bases()
         self.domain_data: dict = {}
         self.all_staples: list = self.get_all_staple()
-        self.staple_helix_dict: dict = self.init_helix_dict()
         self.num_staple_helix_dict = {}
+        self.staple_helix_dict: dict = self.init_helix_dict()
         self.hps_base = self.init_hps()
         self.data: dict = {}
         self.n_st_domains = self.get_staple_domain()
         self.df_staple = self.staple_dataframe()
 
         # crossover
-        self.all_co = self._get_all_co()
-        self.full_co_list_seperate, self.full_co_list_packed = self._get_full_co_list()
-        self.end_co_list = self._get_endloop()
-        self.half_co_list = self._get_half_co()
+        self.all_co_sets, self.all_co_lists = self._get_all_co()
+        self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
+        self.end_co_sets = list()
+        self.end_co_tuples = self._get_endloop()
+        self.half_co_tuples = self._get_half_co()
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.creat_crossover_lists()
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
@@ -53,23 +54,23 @@ class DesignData(object):
         data = {}
         data["name"] = self.name
         data["lattice_type"] = self.get_lattice_type()
-        data["#_helices"] = len(self.dna_structure.structure_helices_map)
-        data["#_skips"] = self.get_n_skips()
-        data["#_nicks"] = len(self.nicks)
-        data["#_stacks"] = len(self.get_stacks())
+        data["n_helices"] = len(self.dna_structure.structure_helices_map)
+        data["n_skips"] = self.get_n_skips()
+        data["n_nicks"] = len(self.nicks)
+        data["n_stacks"] = len(self.get_stacks())
         data["stacks_length"] = self.get_n_stacks()
         data["loop_length"] = self.loops_length_list
         data.update(self.get_insertion_deletion_density())
-        data["#_blunt_ends"] = len(self.get_blunt_ends())
+        data["n_blunt_ends"] = len(self.get_blunt_ends())
 
         # staple stats
-        data["#_staples"] = len(self.get_all_staple())
+        data["n_staples"] = len(self.get_all_staple())
         data["staple_length"] = self.get_staples_length()
         data["helices_staples_pass"] = list(
             self.num_staple_helix_dict.values())
 
         # domains
-        data["#_staple_domain"] = self.get_staple_domain()
+        data["n_staple_domain"] = self.get_staple_domain()
         data["long_domains"] = self.get_staples_with_long_domains()
         data.update(self.divide_domain_lengths())
 
@@ -209,24 +210,24 @@ class DesignData(object):
 
     def staple_dataframe(self):
         data = {
-            'strand_ID': [], 'staple_length': [], '#_helices_staples_pass': [], 'helices_id_staples_pass': [], "#_staple_domain": [], "#_long_domains": [],
+            'strand_ID': [], 'staple_length': [], 'n_helices_staples_pass': [], 'helices_id_staples_pass': [], "n_staple_domain": [], "n_long_domains": [],
             'first_base(p,h)': [], 'last_base(p,h)': []
         }
         for staple in self.all_staples:
             data['strand_ID'].append(staple.id)
             data['staple_length'].append(len(staple.tour))
-            data['#_helices_staples_pass'].append(
+            data['n_helices_staples_pass'].append(
                 len(self.staple_helix_dict[staple]))
             data['helices_id_staples_pass'].append(
                 self.staple_helix_dict[staple])
-            data["#_staple_domain"].append(len(self.domain_data[staple]))
-            data['#_long_domains'].append(self.staple_long_domian(staple))
+            data["n_staple_domain"].append(len(self.domain_data[staple]))
+            data['n_long_domains'].append(self.staple_long_domian(staple))
             first = (staple.tour[0].p, staple.tour[0].h)
             data['first_base(p,h)'].append(first)
             last = (staple.tour[-1].p, staple.tour[-1].h)
             data['last_base(p,h)'].append(last)
         df_staple = pd.DataFrame(data, columns=[
-            'strand_ID', 'staple_length', '#_helices_staples_pass', 'helices_id_staples_pass', '#_staple_domain', '#_long_domains', 'first_base(p,h)', 'last_base(p,h)'])
+            'strand_ID', 'staple_length', 'n_helices_staples_pass', 'helices_id_staples_pass', 'n_staple_domain', 'n_long_domains', 'first_base(p,h)', 'last_base(p,h)'])
         df_staple.to_csv(r'staple.csv')
 
         return df_staple
@@ -297,6 +298,7 @@ class DesignData(object):
                 staple_helix_dict.update({strand: helices_list[-1]})
                 num_staple_helix_dict.update({strand: len(helices_list[-1])})
         self.num_staple_helix_dict = num_staple_helix_dict
+
         return staple_helix_dict
 
     def _get_first_last_bases_of_strands(self) -> list:
@@ -353,19 +355,19 @@ class DesignData(object):
         full_crossovers = list()
         half_crossovers = list()
 
-        for full_co in self.full_co_list_packed:
+        for full_co in self.full_co_tuples:
             typ = 'full'
             full_crossover = self.creat_crossover(typ, full_co)
             full_crossovers.append(full_crossover)
             all_crossovers.append(full_crossover)
 
-        for end in self.end_co_list:
+        for end in self.end_co_tuples:
             typ = 'end'
             endloop = self.creat_crossover(typ, end)
             endloops.append(endloop)
             all_crossovers.append(endloop)
 
-        for half in self.half_co_list:
+        for half in self.half_co_tuples:
             typ = 'half'
             half = self.creat_crossover(typ, half)
             half_crossovers.append(half)
@@ -512,7 +514,8 @@ class DesignData(object):
             list -- [list of all crossovers]
         """
         all_co_tuples = set()
-        all_co = list()
+        all_co_lists = list()
+        all_co_sets = list()
         for strand in self.all_strands:
             if strand.is_scaffold:
 
@@ -522,17 +525,19 @@ class DesignData(object):
         for strand in self.all_strands:
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
-                    co_tuple = tuple()
+                    co_tuple = set()
                     if base.up.h != base.h:
                         co_tuple = (base, base.up)
                         all_co_tuples.add(tuple(set(co_tuple)))
                     elif base.down.h != base.h:
                         co_tuple = (base.down, base)
                         all_co_tuples.add(tuple(set(co_tuple)))
-        for co in all_co_tuples:
-            all_co.append(co)
 
-        return all_co
+        for co in all_co_tuples:
+            all_co_sets.append(set(co))
+            all_co_lists.append(co)
+
+        return all_co_sets, all_co_lists
 
     def _get_full_co_list(self) -> list:
         """[gets the full crossovers as tuples of bases]
@@ -540,7 +545,7 @@ class DesignData(object):
         Returns:
 
             list -- [
-                full_co_list_packed: get full co as a pack of two crossover
+                fulfull_packed_co.extend(self.full_co_tuples: get full co as a pack of two crossover
                 (representation: [Co[B,B],Co[B,B], all in lists)
                 full_co_list_seperate: also seperately as individual crossovers
                 (every Co in frozenset of two bases)
@@ -548,10 +553,9 @@ class DesignData(object):
         """
 
         full_co_list = list()
-        for co in self.all_co:
-            co_neighbours = {"co_tuples_plus": tuple(),
-                             "co_tuples_minus": tuple()
-                             }
+        # lista = list()
+        for co in self.all_co_sets:
+            co_neighbours = dict()
             co_tuple_plus = set()
             co_tuple_minus = set()
 
@@ -559,14 +563,15 @@ class DesignData(object):
                 base_plus, base_minus = self.get_base_plus_minus(base)
                 co_tuple_plus.add(base_plus)
                 co_tuple_minus.add(base_minus)
-            co_neighbours["co_tuples_plus"] = tuple(co_tuple_plus)
-            co_neighbours["co_tuples_minus"] = tuple(co_tuple_minus)
+
+            co_neighbours["plus"] = set(co_tuple_plus)
+            co_neighbours["minus"] = set(co_tuple_minus)
 
             fullco = set()
-            for typ in ["co_tuples_plus", "co_tuples_minus"]:
-                if co_neighbours[typ] in self.all_co:
-                    fullco.add(co)
-                    fullco.add(co_neighbours[typ])
+            for typ in ["plus", "minus"]:
+                if co_neighbours[typ] in self.all_co_sets:
+                    fullco.add(frozenset(co))
+                    fullco.add(frozenset(co_neighbours[typ]))
                     full_co_list.append(frozenset(fullco))
 
                 co_neighbours[typ] = list()
@@ -576,19 +581,21 @@ class DesignData(object):
         two parallel Co in a tuple and two bases also in a tuple
         """
         full_co_set = set(full_co_list)
-        full_co_list_seperate = list()
-        full_co_list_packed = list()
+        full_co_sets_seperate = list()
+        full_co_tuples = list()
 
-        for full in full_co_set:
-            full_co_list_packed.append(tuple(full))
-            for co in full:
-                full_co_list_seperate.append(co)
+        for full_set in full_co_set:
+            full = []
+            for co in full_set:
+                full.append(tuple(co))
+            full_co_tuples.append(tuple(full))
+            for co in full_set:
+                full_co_sets_seperate.append(co)
 
-        return full_co_list_seperate, full_co_list_packed
+        return full_co_sets_seperate, full_co_tuples
 
     def _get_endloop(self) -> list:
-        end_co_list = list()
-        for co in self.all_co:
+        for co in self.all_co_sets:
             for base in co:
                 base_plus = self.get_base_from_hps(
                     base.h, base.p + 1, base.is_scaf)
@@ -596,18 +603,26 @@ class DesignData(object):
                     base.h, base.p - 1, base.is_scaf, dir=-1)
 
                 if (base_plus is None) or (base_minus is None):
-                    if co not in end_co_list:
-                        end_co_list.append(co)
+                    if co not in self.end_co_sets:
+                        self.end_co_sets.append(frozenset(co))
 
-        return end_co_list
+        end_tuples = list()
+        for end in self.end_co_sets:
+            end_tuples.append(tuple(end))
+
+        return end_tuples
 
     def _get_half_co(self) -> list:
-        half_co_list = list()
-        for co in self.all_co:
-            if (co not in self.end_co_list) and (co not in self.full_co_list_seperate):
-                half_co_list.append(co)
+        half_co_sets = list()
+        half_co_tuples = list()
+        for co in self.all_co_sets:
+            if (co not in self.end_co_sets) and (co not in self.full_co_sets_seperate):
+                half_co_sets.append(co)
 
-        return half_co_list
+        for co in half_co_sets:
+            half_co_tuples.append(tuple(co))
+
+        return half_co_tuples
 
     def classify_crossovers(self):
         data = {"scaffold": dict(), "staple": dict()}
@@ -671,7 +686,7 @@ class DesignData(object):
         full_packed_co = list()
         same_pos = list()
         dummy = list()
-        full_packed_co.extend(self.full_co_list_packed)
+        full_packed_co.extend(self.full_co_tuples)
         for f in full_packed_co:
             added.append(False)
 
@@ -835,7 +850,7 @@ class DesignData(object):
 
     def get_blunt_ends(self):
         blunt_ends = set()
-        for co in self.end_co_list:
+        for co in self.end_co_tuples:
             if co[0].is_scaf:
                 if (co[0].across is True) and (co[1].across is True):
                     for base in co:
@@ -851,25 +866,26 @@ class DesignData(object):
                 scaffolds.append(strand)
 
         for scaff in scaffolds:
-            # for full in self.full_crossovers:
+            for full in self.full_crossovers:
 
-            #     if full.strand_typ == 'scaffold':
-            #         index = [scaff.tour.index(bases)
-            #                  for bases in sum(full.bases, ())]
-            #     else:
-            #         index = [scaff.tour.index(bases.across)
-            #                  for bases in sum(full.bases, ())]
-            #     if 0 in index:
-            #         index.pop(0)
-            #     sub_list = list(itertools.product(index, repeat=2))
-            #     sub = max((x[0] - x[1]) for x in sub_list) - 1
+                if full.strand_typ == 'scaffold':
+                    index = [scaff.tour.index(bases)
+                             for bases in sum(full.bases, ())]
+                else:
+                    index = [scaff.tour.index(bases.across)
+                             for bases in sum(full.bases, ())]
+                if 0 in index:
+                    index.pop(0)
+                sub_list = list(itertools.product(index, repeat=2))
+                sub = max((x[0] - x[1]) for x in sub_list) - 1
 
-            #     if sub > len(scaff.tour) / 2:
-            #         sub = len(scaff.tour) - sub
+                if sub > len(scaff.tour) / 2:
+                    sub = len(scaff.tour) - sub
 
-            #     loops.append(sub)
+                loops.append(sub)
 
             for half in self.half_crossovers:
+                # if half.strand_typ == 'scaffold':
                 index = [scaff.tour.index(base.across)
                          for base in half.bases]
                 sub_list = list(itertools.product(index, repeat=2))
@@ -890,7 +906,7 @@ class DesignData(object):
                         export["{}-{}-{}".format(name,
                                                  strand_name, typ)] = n_co
 
-            elif name in ["staple_length", "helices_staples_pass", "#_staple_domain", "long_domains", "stacks_length", "loop_length"]:
+            elif name in ["staple_length", "helices_staples_pass", "n_staple_domain", "long_domains", "stacks_length", "loop_length"]:
                 stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
@@ -909,7 +925,7 @@ def main():
     parser.add_argument("-i", "--input",
                         help="input file",
                         type=str,
-                        default="TTcorr.json",
+                        default="test.json",
                         )
     args = parser.parse_args()
     json = Path(args.input)
