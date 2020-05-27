@@ -40,7 +40,7 @@ class DesignData(object):
         self.end_co_sets = list()
         self.end_co_tuples = self._get_endloop()
         self.half_co_tuples = self._get_half_co()
-        self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.creat_crossover_lists()
+        self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
         self.df_crossover = self.crossover_dataframe()
@@ -231,8 +231,8 @@ class DesignData(object):
             first = (staple.tour[0].h, staple.tour[0].p)
             data['position_5prime'].append(first)
 
-        df_staple = pd.DataFrame(data, columns=[
-            'ID', 'length', 'n_helices_it_passes', 'helices_ID_it_passes', 'n_domains', 'domain_lengths', 'n_long_domains', 'position_5prime'])
+        df_staple = pd.DataFrame(data, columns=list(data.keys())
+                                 )
         df_staple.to_csv(r'staple.csv')
 
         return df_staple
@@ -346,7 +346,7 @@ class DesignData(object):
 
         return nicks
 
-    def creat_crossover_lists(self):
+    def create_crossover_lists(self):
         """[this method creates crossover objects in the dna origami structure]
 
         Returns:
@@ -447,8 +447,7 @@ class DesignData(object):
             data['positions'].append(co.coordinate)
             data['full_scaffold_type'].append(co.scaff_full_type)
 
-        df_crossover = pd.DataFrame(data, columns=[
-                                    'type', 'strand_type', 'helices', 'orientation', 'positions', 'full_scaffold_type'])
+        df_crossover = pd.DataFrame(data, columns=list(data.keys()))
         df_crossover.to_csv(r'crossover_df.csv')
         return df_crossover
 
