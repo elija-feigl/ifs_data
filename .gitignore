@@ -2,6 +2,7 @@
 *vscode*
 *.pyc
 *.txt
+*.mat
 *.csv
 *.json
 *.Ds_store
