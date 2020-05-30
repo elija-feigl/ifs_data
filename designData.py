@@ -215,15 +215,15 @@ class DesignData(object):
 
     def staple_dataframe(self):
         data = {
-            'ID': [], 'length': [], 'n_helices_it_passes': [], 'helices_ID_it_passes': [], "n_domains": [], "domain_lengths": [],
+            'ID': [], 'length': [], 'n_helices': [], 'helices': [], "n_domains": [], "domain_lengths": [],
             "n_long_domains": [], 'position_5prime': []
         }
         for staple in self.all_staples:
             data['ID'].append(staple.id)
             data['length'].append(len(staple.tour))
-            data['n_helices_it_passes'].append(
+            data['n_helices'].append(
                 len(self.staple_helix_dict[staple]))
-            data['helices_ID_it_passes'].append(
+            data['helices'].append(
                 list(self.staple_helix_dict[staple]))
             data["n_domains"].append(len(self.domain_data[staple]))
             data['domain_lengths'].append(self.staple_domains_length[staple])
@@ -437,7 +437,7 @@ class DesignData(object):
     def crossover_dataframe(self):
         data = {
             'type': [], 'strand_type': [], 'helices': [],
-            'orientation': [], 'positions': [], 'full_scaffold_type': []
+            'orientation': [], 'positions': [], 'Cadnano_type(integers)': []
         }
         for co in self.all_crossovers:
             data['type'].append(co.typ)
@@ -445,11 +445,10 @@ class DesignData(object):
             data['helices'].append(tuple(co.h))
             data['orientation'].append(co.is_vertical)
             data['positions'].append(co.coordinate)
-            data['full_scaffold_type'].append(co.scaff_full_type)
+            data['Cadnano_type(integers)'].append(co.scaff_full_type)
 
         df_crossover = pd.DataFrame(data, columns=list(data.keys()))
         # df_crossover.to_csv(r'crossover_df.csv')
-
         return df_crossover
 
     def full_scaff_type(self):
