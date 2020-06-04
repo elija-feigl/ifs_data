@@ -35,16 +35,19 @@ class DesignData(object):
         self.df_staple = self.staple_dataframe()
 
         # crossover
-        self.all_co_sets, self.all_co_lists = self._get_all_co()
-        self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
-        self.end_co_sets = list()
-        self.end_co_tuples = self._get_endloop()
-        self.half_co_tuples = self._get_half_co()
-        self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
-        self.stacks = self.get_stacks()
-        self.pos = self.full_scaff_type()
-        self.df_crossover = self.crossover_dataframe()
-        self.loops_length_list = self.get_loops()
+        try:
+            self.all_co_sets, self.all_co_lists = self._get_all_co()
+            self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
+            self.end_co_sets = list()
+            self.end_co_tuples = self._get_endloop()
+            self.half_co_tuples = self._get_half_co()
+            self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
+            self.stacks = self.get_stacks()
+            self.pos = self.full_scaff_type()
+            self.df_crossover = self.crossover_dataframe()
+            self.loops_length_list = self.get_loops()
+        except:
+            import ipdb; ipdb.set_trace()
 
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.helices = self.dna_structure.structure_helices_map
@@ -402,7 +405,7 @@ class DesignData(object):
             co_typ = co[0]
             for bases in co:
                 for base in bases:
-                    coordinate.append((base.p, base.h))
+                    coordinate.append((base.h, base.p))
                     p.add(base.p)
                     h.add(base.h)
         else:
@@ -410,7 +413,7 @@ class DesignData(object):
             co_typ = co
 
             for base in co:
-                coordinate.append((base.p, base.h))
+                coordinate.append((base.h, base.p))
                 p.add(base.p)
                 h.add(base.h)
 
@@ -429,6 +432,7 @@ class DesignData(object):
         else:
             is_vertical = 'vertical'
 
+        # NOTE: your probalbly better of if you use keywords here
         crossover = Crossover(typ,
                               strand_typ, p, h, is_vertical, coordinate, co, None)
 
@@ -870,15 +874,18 @@ class DesignData(object):
 
         for scaff in scaffolds:
             for full in self.full_crossovers:
-
-                if full.strand_typ == 'scaffold':
-                    index = [scaff.tour.index(bases)
-                             for bases in sum(full.bases, ())]
-                else:
-                    index = [scaff.tour.index(bases.across)
-                             for bases in sum(full.bases, ())]
-                if 0 in index:
-                    index.pop(0)
+                try:
+                    if full.strand_typ == 'scaffold':
+                        index = [scaff.tour.index(bases)
+                                for bases in sum(full.bases, ())]
+                    else:
+                        index = [scaff.tour.index(bases.across)
+                                for bases in sum(full.bases, ())]
+                    if 0 in index:
+                        index.pop(0)
+                except:
+                    import ipdb; ipdb.set_trace()
+               
                 sub_list = list(itertools.product(index, repeat=2))
                 sub = max((x[0] - x[1]) for x in sub_list) - 1
 
@@ -889,8 +896,11 @@ class DesignData(object):
 
             for half in self.half_crossovers:
                 # if half.strand_typ == 'scaffold':
-                index = [scaff.tour.index(base.across)
+                try:
+                    index = [scaff.tour.index(base.across)
                          for base in half.bases]
+                except:
+                    import ipdb; ipdb.set_trace()
                 sub_list = list(itertools.product(index, repeat=2))
                 sub = max((x[0] - x[1]) for x in sub_list) - 1
                 if sub > len(scaff.tour) / 2:
