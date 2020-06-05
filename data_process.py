@@ -15,7 +15,7 @@ from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROP
 from designData import DesignData
 
 
-__authors__ = ["Elija Feigl", "Kuorosh Zargari"]
+__authors__ = ["Elija Feigl", "Kourosh Zargari"]
 __version__ = "0.2"
 __descr__ = "processes database design files. matlabscript on IFS has to be\
              run first. creates database.csv in specified folder"
