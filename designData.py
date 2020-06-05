@@ -43,7 +43,7 @@ class DesignData(object):
         self.end_co_tuples = self._get_endloop()
         self.half_co_tuples = self._get_half_co()
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
-        
+
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
         self.df_crossover = self.crossover_dataframe()
@@ -56,6 +56,9 @@ class DesignData(object):
         data = {}
         data["name"] = self.name
         data["lattice_type"] = self.get_lattice_type()
+        data["dim_x"] = self.get_dimention()[0]
+        data["dim_y"] = self.get_dimention()[1]
+        data["dim_z"] = self.get_dimention()[2]
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
@@ -152,6 +155,33 @@ class DesignData(object):
             return "Square"
         else:
             return "Honeycomb"
+
+    def get_dimention(self):
+        """[getting the dimention of the structure.]
+
+        Returns:
+            [tuple]: [
+                a: max length of the columns in CadNano
+                b: max length of the rows in Cadnano
+                c: diffrence of min base postion in the struction and the max base position in Cadnano (structure's depth)
+            ]
+        """
+        lattice_rows = list()
+        lattice_cols = list()
+        base_pos = list()
+        for helix in self.helices.values():
+            lattice_rows.append(helix.lattice_row)
+            lattice_cols.append(helix.lattice_col)
+        for base in self.all_bases:
+            base_pos.append(base.p)
+
+        a = max(lattice_cols) - min(lattice_cols) + 1
+        b = max(lattice_rows) - min(lattice_rows) + 1
+        c = max(base_pos) - min(base_pos) + 1
+
+        dimention = (a, b, c)
+
+        return dimention
 
     def get_all_bases(self) -> list:
         all_bases = list()
@@ -822,17 +852,19 @@ class DesignData(object):
                 for stack in stacks:
                     if stack[0].across is None or stack[1].across is None:
                         continue
-                    same_staple = (stack[0].across.strand == stack[1].across.strand)
+                    same_staple = (stack[0].across.strand ==
+                                   stack[1].across.strand)
                     sc = self.all_strands[stack[0].strand]
                     same_scaffold = (sc.id == stack[1].strand)
                     if same_staple and same_scaffold:
                         # NOTE: potentially (stack[0].residue -1) istead of tour(index)
                         sub_new = abs(sc.tour.index(stack[0])
-                                    - sc.tour.index(stack[1])
-                                    )
+                                      - sc.tour.index(stack[1])
+                                      )
                         if sub_new > len(sc.tour) / 2:
                             sub_new = len(sc.tour) - sub_new
-                        if sub_new < sub: sub = sub_new
+                        if sub_new < sub:
+                            sub = sub_new
 
             else:  # staple
                 for connection in co.bases:
@@ -844,12 +876,14 @@ class DesignData(object):
                     same_scaffold = (sc.id == connection[1].across.strand)
                     if same_scaffold:
                         sub_new = abs(sc.tour.index(connection[0].across)
-                                    - sc.tour.index(connection[1].across)
-                                    )
+                                      - sc.tour.index(connection[1].across)
+                                      )
                         if sub_new > len(sc.tour) / 2:
                             sub_new = len(sc.tour) - sub_new
-                        if sub_new < sub: sub = sub_new
-            if not np.isinf(sub): loops.append(sub)
+                        if sub_new < sub:
+                            sub = sub_new
+            if not np.isinf(sub):
+                loops.append(sub)
 
         return loops
 
@@ -859,8 +893,11 @@ class DesignData(object):
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
-                        export["{}_{}_{}".format(name,
-                                                 strand_name, typ)] = n_co
+                        if (strand_name == 'scaffold') and (typ in ['half', 'half_v', 'half_h']):
+                            pass
+                        else:
+                            export["{}_{}_{}".format(
+                                name, strand_name, typ)] = n_co
 
             elif name in ["staples_length", "helices_staples_pass", "n_staples_domains", "long_domains", "stacks_length", "loops_length"]:
                 stats = get_statistics(value, name)
