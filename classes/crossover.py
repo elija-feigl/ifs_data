@@ -10,7 +10,7 @@ class Crossover(object):
                 strand_typ (bool): is a crossover for a (scaffold = True) or a (staple = False).
                 is_vertical (bool): indicates the orientation of the crossover
                                     in the DNA origami structure.[vertical = True] & [horizontal = False]
-                coordinates (list): the position and helix (base.p, base.h)
+                coordinates (list): the position and helix (base.h, base.p)
                                     number of each base that is connected in the crossover.
                 bases (tuple): the bases that are connected togather via the crossover.
 

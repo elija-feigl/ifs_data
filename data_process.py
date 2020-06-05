@@ -32,7 +32,6 @@ def export_data(data: dict, fdb_file: IO) -> None:
 def process_mat_file(mat_file: IO) -> dict:
 
     mat = sio.loadmat(mat_file, squeeze_me=True)
-
     try:
         gel_info = mat["gelInfo"]
     except KeyError:
@@ -49,13 +48,14 @@ def process_mat_file(mat_file: IO) -> dict:
     for prop in GEL_PROPERTIES + FOLD_PROPERTIES:
         info = gel_info if prop in GEL_PROPERTIES else fold_info
         is_set = (prop in info.dtype.names)
+        # NOTE: why is this in here twice?
         if prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"] and is_set:
             prop_str = str(info[prop].item()[best_idx])
         elif is_set:
             prop_str = str(info[prop]).replace(",", ".")
         else:
             prop_str = " "
-        data.update({prop: prop_str})
+        data.update({prop: prop_str.lower()})
 
     for prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]:
         if prop in fold_info.dtype.names:
