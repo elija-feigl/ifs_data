@@ -35,20 +35,22 @@ class DesignData(object):
         self.df_staple = self.staple_dataframe()
 
         # crossover
+        self.helices = self.dna_structure.structure_helices_map
+
         self.all_co_sets, self.all_co_lists = self._get_all_co()
         self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
         self.end_co_sets = list()
         self.end_co_tuples = self._get_endloop()
         self.half_co_tuples = self._get_half_co()
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
+        
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
         self.df_crossover = self.crossover_dataframe()
         self.loops_length_list = self.get_loops()
-            self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
-            self.helices = self.dna_structure.structure_helices_map
-            self.nicks: list = self.get_nicks()
-            self.blunt_ends = self.get_blunt_ends()
+        self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
+        self.nicks: list = self.get_nicks()
+        self.blunt_ends = self.get_blunt_ends()
 
     def compute_data(self) -> None:
         data = {}
@@ -361,68 +363,23 @@ class DesignData(object):
 
         for full_co in self.full_co_tuples:
             typ = 'full'
-            full_crossover = self.creat_crossover(typ, full_co)
+            full_crossover = Crossover(typ, full_co, self.helices)
             full_crossovers.append(full_crossover)
             all_crossovers.append(full_crossover)
 
         for end in self.end_co_tuples:
             typ = 'end'
-            endloop = self.creat_crossover(typ, end)
+            endloop = Crossover(typ, end, self.helices)
             endloops.append(endloop)
             all_crossovers.append(endloop)
 
         for half in self.half_co_tuples:
             typ = 'half'
-            half = self.creat_crossover(typ, half)
+            half = Crossover(typ, half, self.helices)
             half_crossovers.append(half)
             all_crossovers.append(half)
 
         return all_crossovers, full_crossovers, half_crossovers, endloops
-
-    def creat_crossover(self, typ, co) -> list:
-        """[this function creats crossover objects with attributes which are available in crossover class]
-
-        Arguments:
-            typ {[str]} -- [crossover type: full, half, endloop]
-            co {[tuple]} -- [a resemblance of a crossover made of a
-                            tuple consisting two basis which indicates a crossover]
-
-        Returns:
-            crossover Object -- [description]
-        """
-        coordinate = list()
-        helix_row = list()
-        h = set()
-        p = set()
-        base_typ = co[0][0]
-        co_typ = co[0]
-
-        if typ == 'full':
-            for bases in co:
-                for base in bases:
-                    coordinate.append((base.h, base.p))
-                    p.add(base.p)
-                    h.add(base.h)
-        else:
-            for base in co[0]:
-                coordinate.append((base.h, base.p))
-                p.add(base.p)
-                h.add(base.h)
-
-        strand_typ = 'scaffold' if base_typ.is_scaf else 'staple'
-
-        for base in co_typ:
-            map_id_helices = self.dna_structure.structure_helices_map
-            helix_row.append(
-                map_id_helices[base.h].lattice_row)
-
-        is_vertical = 'horizontal' if (helix_row[0] == helix_row[1]) else 'vertical'
-
-        # NOTE: your probalbly better of if you use keywords here
-        crossover = Crossover(typ,
-                              strand_typ, p, h, is_vertical, coordinate, co, None)
-
-        return crossover
 
     def crossover_dataframe(self):
         data = {
@@ -433,7 +390,7 @@ class DesignData(object):
             data['type'].append(co.typ)
             data['strand_type'].append(co.strand_typ)
             data['helices'].append(tuple(co.h))
-            data['orientation'].append(co.is_vertical)
+            data['orientation'].append(co.orientation)
             data['positions'].append(co.coordinate)
             data['Cadnano_type(integers)'].append(co.scaff_full_type)
 
@@ -444,11 +401,11 @@ class DesignData(object):
     def full_scaff_type(self):
         """[type of the full scaffold crossover depending on the position suggested by cadnano]
         """
-        inf_full = list()
         for full in self.full_crossovers:
             if full.strand_typ == 'scaffold':
                 sub_new = np.Infinity
                 # find closest crossover
+                # TODO: change to possibe staple co!!! or even just check p
                 for co in self.all_crossovers:
                     if co.strand_typ == 'staple':
 
@@ -459,7 +416,8 @@ class DesignData(object):
                                 sub_new = sub
 
                 if sub_new is np.Infinity:
-                    inf_full.append(full)
+                    full.scaff_full_type = 0
+                    return
 
                 # calculate type
                 if self.get_lattice_type() == 'Square':
@@ -467,22 +425,19 @@ class DesignData(object):
 
                     if 0 <= mod <= 11:
                         typ = 1
-                        full.set_full_scaf_type(typ)
                     elif 21 <= mod < 32:
                         typ = 3
-                        full.set_full_scaf_type(typ)
                     else:
                         typ = 2
-                        full.set_full_scaf_type(typ)
 
                 else:
                     mod = sub_new % 21
                     if 0 <= mod <= 11:
                         typ = 1
-                        full.set_full_scaf_type(typ)
-                    elif 11 < mod <= 21:
+                    elif 11 < mod < 21:
                         typ = 3
-                        full.set_full_scaf_type(typ)
+
+                full.scaff_full_type = typ
 
     def get_all_full_scaff_crossover_types(self):
         data = {
@@ -633,7 +588,7 @@ class DesignData(object):
             for co in crossovers:
                 strand = "scaffold" if co.strand_typ == 'scaffold' else "staple"
                 co_subsets[strand][""].add(co)
-                if not co.is_vertical:
+                if co.orientation == "horizontal":
                     co_subsets[strand]["_h"].add(co)
                 else:
                     co_subsets[strand]["_v"].add(co)
@@ -859,45 +814,43 @@ class DesignData(object):
         loops = list()
         for co in self.full_crossovers + self.half_crossovers:
             sub = np.inf
-            try:
-                if co.strand_typ == 'scaffold':
-                    stacks = tuple([
-                        tuple([co.bases[0][0], co.bases[1][0]]),
-                        tuple([co.bases[0][1], co.bases[1][1]])
-                    ])
-                    for stack in stacks:
-                        if stack[0].across is None or stack[1].across is None:
-                            continue
-                        same_staple = (stack[0].across.strand == stack[1].across.strand)
-                        sc = self.all_strands[stack[0].strand]
-                        same_scaffold = (sc.id == stack[1].strand)
-                        if same_staple and same_scaffold:
-                            # NOTE: potentially (stack[0].residue -1) istead of tour(index)
-                            sub_new = abs(sc.tour.index(stack[0])
-                                        - sc.tour.index(stack[1])
-                                        )
-                            if sub_new > len(sc.tour) / 2:
-                                sub_new = len(sc.tour) - sub_new
-                            if sub_new < sub: sub = sub_new
+            if co.strand_typ == 'scaffold':
+                stacks = tuple([
+                    tuple([co.bases[0][0], co.bases[1][0]]),
+                    tuple([co.bases[0][1], co.bases[1][1]])
+                ])
+                for stack in stacks:
+                    if stack[0].across is None or stack[1].across is None:
+                        continue
+                    same_staple = (stack[0].across.strand == stack[1].across.strand)
+                    sc = self.all_strands[stack[0].strand]
+                    same_scaffold = (sc.id == stack[1].strand)
+                    if same_staple and same_scaffold:
+                        # NOTE: potentially (stack[0].residue -1) istead of tour(index)
+                        sub_new = abs(sc.tour.index(stack[0])
+                                    - sc.tour.index(stack[1])
+                                    )
+                        if sub_new > len(sc.tour) / 2:
+                            sub_new = len(sc.tour) - sub_new
+                        if sub_new < sub: sub = sub_new
 
-                else:  # staple
-                    for connection in co.bases:
-                        if connection is None:  # NOTE: only 1 for half_co
-                            continue
-                        if connection[0].across is None or connection[1].across is None:
-                            continue
-                        sc = self.all_strands[connection[0].across.strand]
-                        same_scaffold = (sc.id == connection[1].across.strand)
-                        if same_scaffold:
-                            sub_new = abs(sc.tour.index(connection[0].across)
-                                        - sc.tour.index(connection[1].across)
-                                        )
-                            if sub_new > len(sc.tour) / 2:
-                                sub_new = len(sc.tour) - sub_new
-                            if sub_new < sub: sub = sub_new
-                if not np.isinf(sub): loops.append(sub)
-            except:
-                import ipdb; ipdb.set_trace()
+            else:  # staple
+                for connection in co.bases:
+                    if connection is None:  # NOTE: only 1 for half_co
+                        continue
+                    if connection[0].across is None or connection[1].across is None:
+                        continue
+                    sc = self.all_strands[connection[0].across.strand]
+                    same_scaffold = (sc.id == connection[1].across.strand)
+                    if same_scaffold:
+                        sub_new = abs(sc.tour.index(connection[0].across)
+                                    - sc.tour.index(connection[1].across)
+                                    )
+                        if sub_new > len(sc.tour) / 2:
+                            sub_new = len(sc.tour) - sub_new
+                        if sub_new < sub: sub = sub_new
+            if not np.isinf(sub): loops.append(sub)
+
         return loops
 
     def prep_data_for_export(self) -> dict:
@@ -910,10 +863,8 @@ class DesignData(object):
                                                  strand_name, typ)] = n_co
 
             elif name in ["staples_length", "helices_staples_pass", "n_staples_domains", "long_domains", "stacks_length", "loops_length"]:
-                try:
-                    stats = get_statistics(value, name)
-                except: 
-                    import ipdb; ipdb.set_trace()
+                stats = get_statistics(value, name)
+
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
             elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:

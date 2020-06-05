@@ -1,12 +1,17 @@
+from typing import Optional
+
 
 class Crossover(object):
+    __slots__ = ["typ", "scaff_full_type", "coordinate", "h", "p", "orientation", "bases", "strand_typ"]
 
-    def __init__(self, typ, strand_typ, p, h, is_vertical, coordinate, bases, scaff_full_type):
+    def __init__(self, typ, con_tuple, helices):
         """
             Initialize a Crossover object.
 
             Arguments:
                 typ (str): type of crossover (full, half, endloop).
+                con_tuple tuple(tuple(base,base), optinal(tuple(base,base)))
+
                 strand_typ (bool): is a crossover for a (scaffold = True) or a (staple = False).
                 is_vertical (bool): indicates the orientation of the crossover
                                     in the DNA origami structure.[vertical = True] & [horizontal = False]
@@ -15,24 +20,49 @@ class Crossover(object):
                 bases (tuple): the bases that are connected togather via the crossover.
 
         """
+        self.typ: str = typ
+        self.scaff_full_type: Optional[int] = None
 
-        self.typ = typ
-        self.strand_typ = strand_typ
-        self.p = p
-        self.h = h
-        self.is_vertical = is_vertical
-        self.coordinate = coordinate
-        self.bases = bases
-        self.scaff_full_type = None
+        self.create_crossover(con_tuple, helices)
 
-    def set_full_scaf_type(self, typ):
-        self.scaff_full_type = typ
+    def create_crossover(self, con_tuple, helices):
+        """[this function creats crossover objects with attributes which are available in crossover class]
 
-    def get_typ(self, typ):
-        self.typ = typ
+        Arguments:
+            typ {[str]} -- [crossover type: full, half, endloop]
+            con_tuple  tuple(tuple(base,base), optinal(tuple(base,base))) -- [a resemblance of a crossover made of a
+                            tuple consisting two basis which indicates a crossover]
 
-    def get_crossover_position(self, p):
-        self.p = p
+        Returns:
+            crossover Object -- [description]
+        """
+        tmp_bases = list([None, None])
+        for i, con in enumerate(con_tuple):
+            if con is None:
+                continue
+            tmp_bases[i] = con if con[0].h < con[1].h else con[::-1]
+        if con_tuple[1] is None:
+            self.bases = tuple(tmp_bases)
+        else:
+            self.bases = tuple(tmp_bases) if tmp_bases[0][0].p < tmp_bases[1][0].p else tuple(tmp_bases[::-1])
 
-    def get_crossover_helix(self, h):
-        self.h = h
+        first_base = self.bases[0][0]
+        self.strand_typ = 'scaffold' if first_base.is_scaf else 'staple'
+
+        self.h = set()
+        self.p = set()
+        self.coordinate = list()
+
+        for con in self.bases:
+            if con is None:
+                continue
+            for base in con:
+                self.coordinate.append((base.h, base.p))
+                self.p.add(base.p)
+                self.h.add(base.h)
+
+        is_vertical = (
+            helices[self.bases[0][0].h].lattice_row
+            == helices[self.bases[0][1].h].lattice_row
+        )
+        self.orientation = "vertical" if is_vertical else "horizontal"
