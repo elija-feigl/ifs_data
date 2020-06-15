@@ -27,15 +27,16 @@ class DesignData(object):
         self.all_staples: list = self.get_all_staple()
         self.num_staple_helix_dict = dict()
         self.staple_helix_dict: dict = self.init_helix_dict()
+        self.hps_base_skips = self.init_hps_skips()
         self.hps_base = self.init_hps()
         self.data: dict = {}
         self.staple_domains_length = dict()
         self.n_st_domains = self.get_staple_domain()
         self.long_domains = self.get_staples_with_long_domains()
         self.df_staple = self.staple_dataframe()
+        self.helices = self.dna_structure.structure_helices_map
 
         # crossover
-        self.helices = self.dna_structure.structure_helices_map
 
         self.all_co_sets, self.all_co_lists = self._get_all_co()
         self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
@@ -56,9 +57,7 @@ class DesignData(object):
         data = {}
         data["name"] = self.name
         data["lattice_type"] = self.get_lattice_type()
-        data["dim_x"] = self.get_dimention()[0]
-        data["dim_y"] = self.get_dimention()[1]
-        data["dim_z"] = self.get_dimention()[2]
+        data["dim_x"], data["dim_y"], data["dim_z"] = self.get_dimension()
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
@@ -111,11 +110,19 @@ class DesignData(object):
 
     def init_hps(self) -> dict:
         hps_base = {}
-        for strand in self.all_strands:
+        for strand in self.dna_structure.strands:
             for base in strand.tour:
                 position = (base.h, base.p, base.is_scaf)
                 hps_base[position] = base
         return hps_base
+
+    def init_hps_skips(self) -> dict:
+        hps_base_skips = {}
+        for strand in self.dna_structure_skips.strands:
+            for base in strand.tour:
+                position = (base.h, base.p, base.is_scaf)
+                hps_base_skips[position] = base
+        return hps_base_skips
 
     def get_base_from_hps(self, h, p, is_scaffold, dir=1):
         """[get the base object from its coordination: (h, p is_scaffold)]
@@ -156,8 +163,8 @@ class DesignData(object):
         else:
             return "Honeycomb"
 
-    def get_dimention(self):
-        """[getting the dimention of the structure.]
+    def get_dimension(self):
+        """[getting the dimension of the structure.]
 
         Returns:
             [tuple]: [
@@ -165,7 +172,9 @@ class DesignData(object):
                 b: max length of the rows in Cadnano
                 c: diffrence of min base postion in the struction and the max base position in Cadnano (structure's depth)
             ]
+        NOTE: the values could be wrong for exotic designs 
         """
+
         lattice_rows = list()
         lattice_cols = list()
         base_pos = list()
@@ -179,9 +188,9 @@ class DesignData(object):
         b = max(lattice_rows) - min(lattice_rows) + 1
         c = max(base_pos) - min(base_pos) + 1
 
-        dimention = (a, b, c)
+        dimension = (a, b, c)
 
-        return dimention
+        return dimension
 
     def get_all_bases(self) -> list:
         all_bases = list()
@@ -760,12 +769,16 @@ class DesignData(object):
         return n_stacks
 
     def get_co_density(self):
+        """[calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)]
+        NOTE: the values for number of possible_co and co_desity are not exact but close to the true value
+        """
+        # TODO: possible_ co numbers are not exactly correct
         def is_ds(pos, hid):
-            is_sc = (hid, pos, True) in self.hps_base
-            is_st = (hid, pos, False) in self.hps_base
+            is_sc = (hid, pos, True) in self.hps_base_skips
+            is_st = (hid, pos, False) in self.hps_base_skips
             # (hid, pos) in self.skips (note: list of (h,p) for all skips)
             is_skip = False
-            return ((is_sc and is_st) or is_skip)
+            return ((is_sc or is_st) or is_skip)
 
         def cleanup_co(co_list):
             n_ends = 0
@@ -782,36 +795,63 @@ class DesignData(object):
             if co_list[-1] - 1 != co_list[-2]:
                 n_ends += 1
                 co_list = co_list[:-1]
-            return n_ends, len(co_list) / 2
+            # TODO: devision by two is assumed for possible_full_co(two connections)
+            return n_ends, len(co_list) // 2
 
-        possible_crossovers = {"scaffold": {"co": 0, "co_h": 0, "co_v": 0, "end": 0},
-                               "staple": {"co": 0, "co_h": 0, "co_v": 0, "end": 0}
+        def neighbour_bases(strand_typ, helix):
+            """[gives a list of all bases in the neighbouring helix to ckeck if there 
+            exist a base in the neighbouring helix to connect to the base that is a possible_co in the main helix]
+
+            Args:
+                strand_typ ([str]): [Scaffold or Staple]
+                helix ([DnaStructureHelix]): [neighbouring helix]
+
+            Returns:
+                [list]: [list of all the bases in the neighbouring helix]
+
+            """
+            if strand_typ == 'scaffold':
+                neighbour_bases = [base.p for base in helix.scaffold_bases]
+            else:
+                neighbour_bases = [base.p for base in helix.staple_bases]
+
+            return neighbour_bases
+
+        def orientation(typ, helix, helix_row):
+            if typ == 'h':
+                return helix_row == helix.lattice_row
+            else:
+                return helix_row != helix.lattice_row
+
+        possible_crossovers = {"scaffold": {"co": 0, "co_h": 0, "co_v": 0},
+                               "staple": {"co": 0, "co_h": 0, "co_v": 0}
                                }
         # part 1: number of possible crossovers
-        helices = self.dna_structure.structure_helices_map.values()
-
+        helices = self.dna_structure_skips.structure_helices_map.values()
+        a = list()  # debug
         for helix in helices:
             helix_row = helix.lattice_row
 
             for strand in ["scaffold", "staple"]:
                 for typ in ["v", "h"]:
+
+                    # NOTE: nanodesign crossoevers are actually connections
                     if strand == "scaffold":
                         p_co = helix.possible_scaffold_crossovers
+
                     else:
                         p_co = helix.possible_staple_crossovers
 
-                    if typ == "h":
-                        x = [co[1] for co in p_co
-                             if (is_ds(pos=co[1], hid=helix.id) and (helix_row == co[0].lattice_row))
-                             ]
-                    else:
-                        x = [co[1] for co in p_co
-                             if (is_ds(pos=co[1], hid=helix.id) and (helix_row != co[0].lattice_row))
-                             ]
+                    x = [co[1] for co in p_co if (is_ds(pos=co[1], hid=helix.id) and
+                                                  orientation(typ, co[0], helix_row) and
+                                                  (co[1] in neighbour_bases(strand, co[0])))]
+
                     end, co = cleanup_co(sorted(x))
-                    possible_crossovers[strand]["co"] += co
-                    possible_crossovers[strand]["co_" + typ] += co
-                    possible_crossovers[strand]["end"] += end
+                    # TODO: devision by two is assumed for counting each possible_co two times for a helix and its neighbour
+
+                    possible_crossovers[strand]["co"] += co // 2
+                    possible_crossovers[strand]["co_" + typ] += co // 2
+                    # possible_crossovers[strand]["end"] += end
 
         # part2 get actual crossovers
         set_crossovers = self.classify_crossovers()
