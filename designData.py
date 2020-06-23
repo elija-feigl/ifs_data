@@ -6,10 +6,8 @@ import nanodesign as nd
 import numpy as np
 from pathlib import Path
 import argparse
-import itertools
 import pandas as pd
 
-from nanodesign.converters import Converter
 from classes.crossover import Crossover
 from classes.nicks import Nick
 from statistics import mean
@@ -17,9 +15,10 @@ from statistics import mean
 
 class DesignData(object):
 
-    def __init__(self, json: str, name: str):
+    def __init__(self, json: str, name: str, seq: str):
         self.json: str = json
         self.name: str = name
+        self.seq: str = seq
         self.dna_structure, self.dna_structure_skips = self.init_design()
         self.all_strands: list = self.dna_structure.strands
         self.all_bases: list = self.get_all_bases()
@@ -86,13 +85,11 @@ class DesignData(object):
         self.data = data
 
     def init_design(self):
-        # seq_file = self.name + ".seq"
-        seq_name = None
-        converter = Converter(modify=True, logg=False)
-        converter.read_cadnano_file(self.json, None, seq_name)
+        converter = nd.converters.Converter(modify=True, logg=False)
+        converter.read_cadnano_file(self.json, None, self.seq)
         converter.dna_structure.compute_aux_data()
-        converter_skip = Converter(modify=False, logg=False)
-        converter_skip.read_cadnano_file(self.json, None, seq_name)
+        converter_skip = nd.converters.Converter(modify=False, logg=False)
+        converter_skip.read_cadnano_file(self.json, None, self.seq)
         converter_skip.dna_structure.compute_aux_data()
         return converter.dna_structure, converter_skip.dna_structure
 
@@ -191,6 +188,10 @@ class DesignData(object):
         dimension = (a, b, c)
 
         return dimension
+
+    def calculate_alpha_value(self):
+        # TODO
+        return
 
     def get_all_bases(self) -> list:
         all_bases = list()
@@ -964,7 +965,7 @@ def main():
     args = parser.parse_args()
     json = Path(args.input)
     outname = "{}-stat.csv".format(json.name)
-    designdata = DesignData(json=json, name=json.name)
+    designdata = DesignData(json=json, name=json.name, seq='8064')
     designdata.compute_data()
     data = designdata.prep_data_for_export()
     with open(outname, mode="w+") as outfile:

@@ -4,7 +4,6 @@
 import os
 import argparse
 import logging
-import csv
 import scipy.io as sio
 
 from pathlib import Path
@@ -77,7 +76,7 @@ def proc_input() -> Project:
     parser.add_argument("-i", "--input",
                         help="input folder",
                         type=str,
-                        default="./",
+                        default="/Users/krshz/Work/Foldingscreens_200602",
                         )
     parser.add_argument("-o", "--output",
                         help="output folder",
@@ -128,9 +127,11 @@ def main():
                 continue
 
             design_name = mat_data["design_name"]
+            design_seq = mat_data["scaffold_type"].upper()
 
             try:
-                designdata = DesignData(json=json, name=design_name)
+                designdata = DesignData(
+                    json=json, name=design_name, seq=design_seq)
             except Exception as e:
                 e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
