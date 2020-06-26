@@ -7,6 +7,9 @@ import numpy as np
 from pathlib import Path
 import argparse
 import pandas as pd
+from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
+from Bio.Seq import Seq
+import matplotlib.pyplot as plt
 
 from classes.crossover import Crossover
 from classes.nicks import Nick
@@ -22,19 +25,20 @@ class DesignData(object):
         self.dna_structure, self.dna_structure_skips = self.init_design()
         self.all_strands: list = self.dna_structure.strands
         self.all_bases: list = self.get_all_bases()
-        self.domain_data: dict = {}
         self.all_staples: list = self.get_all_staple()
         self.num_staple_helix_dict = dict()
         self.staple_helix_dict: dict = self.init_helix_dict()
         self.hps_base_skips = self.init_hps_skips()
         self.hps_base = self.init_hps()
         self.data: dict = {}
+        self.domain_data: dict = {}
         self.staple_domains_length = dict()
         self.n_st_domains = self.get_staple_domain()
         self.long_domains = self.get_staples_with_long_domains()
+        self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
         self.df_staple = self.staple_dataframe()
         self.helices = self.dna_structure.structure_helices_map
-
+        self.alpha_value = self.alpha_value()
         # crossover
 
         self.all_co_sets, self.all_co_lists = self._get_all_co()
@@ -169,7 +173,7 @@ class DesignData(object):
                 b: max length of the rows in Cadnano
                 c: diffrence of min base postion in the struction and the max base position in Cadnano (structure's depth)
             ]
-        NOTE: the values could be wrong for exotic designs 
+        NOTE: the values could be wrong for exotic designs
         """
 
         lattice_rows = list()
@@ -189,15 +193,15 @@ class DesignData(object):
 
         return dimension
 
-    def calculate_alpha_value(self):
-        # TODO
-        return
-
     def get_all_bases(self) -> list:
         all_bases = list()
+        all_seq = list()
         for strand in self.all_strands:
-            for base in strand.tour:
-                all_bases.append(base)
+            if strand.is_scaffold:
+                for base in strand.tour:
+                    all_bases.append(base)
+                    all_seq.append(base.seq)
+        seqs = "".join(str(v) for v in all_seq)
         return all_bases
 
     def get_staples_length(self) -> list:
@@ -212,19 +216,62 @@ class DesignData(object):
         return len(self.dna_structure.Dhp_skips)
 
     def get_staple_domain(self) -> list:
-        data = {}
+
         domain_data = {}
+
         n_st_domains = list()  # number of domains for each staple
         for strand in self.all_strands:
             if not strand.is_scaffold:
+                data = {}
                 data = {strand: strand.domain_list}
                 domain_data.update(data)
-                data = {}
         self.domain_data = domain_data
         for strand in domain_data.keys():
             n_st_domains.append(len(domain_data[strand]))
         # domin_data : is a dict that map the strand ID to the domains it has
         return n_st_domains
+
+    def staple_domains_melt_t(self) -> dict:
+        staple_domains_melt_t = self.domain_data
+        domain_seq = {}
+        special = {}
+        for staple in staple_domains_melt_t.keys():
+            staple_domains_melt_t[staple] = [MeltingTemp.Tm_NN(
+                Seq(domain.sequence)) for domain in self.domain_data[staple] if "N" not in domain.sequence]
+
+        for staple in self.all_staples:
+            for domain in staple.domain_list:
+                if "N" not in domain.sequence:
+                    domain_seq[domain.sequence] = MeltingTemp.Tm_NN(
+                        Seq(domain.sequence))
+        for seq in domain_seq.keys():
+            if 12 < len(seq) < 16:  # and domain_seq[seq] < 20:
+                special[seq] = domain_seq[seq]
+        length = [len(a) for a in domain_seq.keys()]
+        # plt.scatter(length, domain_seq.values())
+        # plt.xticks(list(set(length)))
+        # plt.xlabel('Seq_Length')
+        # plt.ylabel('Melt_T')
+        # plt.show()
+
+        return staple_domains_melt_t
+
+    def alpha_value(self):
+        max_staple_melt_t = dict()
+        high_melt_t_staples = dict()
+
+        for staple in self.staple_domains_melt_t.keys():
+            max_staple_melt_t.update(
+                {staple: max(self.staple_domains_melt_t[staple])})
+        T_crit = 45.
+        for staple, T in max_staple_melt_t.items():
+            T = max_staple_melt_t[staple]
+            if T >= T_crit:
+                good_staple = {staple: T}
+                high_melt_t_staples.update(good_staple)
+        alpha_value = len(high_melt_t_staples) / len(self.all_staples)
+
+        return alpha_value
 
     def get_staples_with_long_domains(self) -> list:
         """[long domain are domains with 14 and more bases]
@@ -257,7 +304,7 @@ class DesignData(object):
     def staple_dataframe(self):
         data = {
             'ID': [], 'length': [], 'n_helices': [], 'helices': [], "n_domains": [], "domain_lengths": [],
-            "n_long_domains": [], 'position_5prime': []
+            "domain_melt_t": [], "n_long_domains": [], 'position_5prime': []
         }
         for staple in self.all_staples:
             data['ID'].append(staple.id)
@@ -268,13 +315,14 @@ class DesignData(object):
                 list(self.staple_helix_dict[staple]))
             data["n_domains"].append(len(self.domain_data[staple]))
             data['domain_lengths'].append(self.staple_domains_length[staple])
+            data["domain_melt_t"].append(self.staple_domains_melt_t[staple])
             data['n_long_domains'].append(self.staple_long_domian(staple))
             first = (staple.tour[0].h, staple.tour[0].p)
             data['position_5prime'].append(first)
 
         df_staple = pd.DataFrame(data, columns=list(data.keys())
                                  )
-        # df_staple.to_csv(r'staple.csv')
+        df_staple.to_csv(r'staple.csv')
 
         return df_staple
 
@@ -800,7 +848,7 @@ class DesignData(object):
             return n_ends, len(co_list) // 2
 
         def neighbour_bases(strand_typ, helix):
-            """[gives a list of all bases in the neighbouring helix to ckeck if there 
+            """[gives a list of all bases in the neighbouring helix to ckeck if there
             exist a base in the neighbouring helix to connect to the base that is a possible_co in the main helix]
 
             Args:
@@ -916,9 +964,10 @@ class DesignData(object):
                     sc = self.all_strands[connection[0].across.strand]
                     same_scaffold = (sc.id == connection[1].across.strand)
                     if same_scaffold:
-                        sub_new = abs(sc.tour.index(connection[0].across)
-                                      - sc.tour.index(connection[1].across)
-                                      )
+                        base_1 = sc.tour.index(connection[0].across)
+                        base_2 = sc.tour.index(connection[1].across)
+                        sub_new = abs(base_1 - base_2)
+
                         if sub_new > len(sc.tour) / 2:
                             sub_new = len(sc.tour) - sub_new
                         if sub_new < sub:
