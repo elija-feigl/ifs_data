@@ -61,6 +61,7 @@ class DesignData(object):
         data["name"] = self.name
         data["lattice_type"] = self.get_lattice_type()
         data["dim_x"], data["dim_y"], data["dim_z"] = self.get_dimension()
+        data['alpha_value'] = self.alpha_value
         data["n_helices"] = len(self.dna_structure.structure_helices_map)
         data["n_skips"] = self.get_n_skips()
         data["n_nicks"] = len(self.nicks)
@@ -242,17 +243,21 @@ class DesignData(object):
         for staple in self.all_staples:
             for domain in staple.domain_list:
                 if "N" not in domain.sequence:
-                    domain_seq[domain.sequence] = MeltingTemp.Tm_NN(
-                        Seq(domain.sequence))
+                    if len(domain.base_list) > 14:
+                        domain_seq[domain.sequence] = MeltingTemp.Tm_NN(
+                            Seq(domain.sequence))
+                    else:
+                        domain_seq[domain.sequence] = MeltingTemp.Tm_Wallace(
+                            Seq(domain.sequence))
         for seq in domain_seq.keys():
             if 12 < len(seq) < 16:  # and domain_seq[seq] < 20:
                 special[seq] = domain_seq[seq]
         length = [len(a) for a in domain_seq.keys()]
-        # plt.scatter(length, domain_seq.values())
-        # plt.xticks(list(set(length)))
-        # plt.xlabel('Seq_Length')
-        # plt.ylabel('Melt_T')
-        # plt.show()
+        plt.scatter(length, domain_seq.values())
+        plt.xticks(list(set(length)))
+        plt.xlabel('Seq_Length')
+        plt.ylabel('Melt_T')
+        plt.show()
 
         return staple_domains_melt_t
 
