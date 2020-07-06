@@ -38,6 +38,9 @@ class DesignData(object):
         self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
         self.df_staple = self.staple_dataframe()
         self.helices = self.dna_structure.structure_helices_map
+        # NOTE: dictionary of staples and maximum melting temp of domains for each staple
+        self.max_staple_melt_t = {key: max(value) for (
+            key, value) in self.staple_domains_melt_t.items()}
         self.alpha_value = self.alpha_value()
         # crossover
 
@@ -81,6 +84,7 @@ class DesignData(object):
         data["n_staples_domains"] = self.get_staple_domain()
         data["long_domains"] = self.get_staples_with_long_domains()
         data.update(self.divide_domain_lengths())
+        data["staple_domain_melt_T"] = list(self.max_staple_melt_t.values())
 
         # crossovers
         data["co_set"] = self.classify_crossovers()
@@ -233,50 +237,47 @@ class DesignData(object):
         return n_st_domains
 
     def staple_domains_melt_t(self) -> dict:
-        staple_domains_melt_t = self.domain_data
-        domain_seq = {}
-        special = {}
-        for staple in staple_domains_melt_t.keys():
-            staple_domains_melt_t[staple] = [MeltingTemp.Tm_NN(
-                Seq(domain.sequence)) for domain in self.domain_data[staple] if "N" not in domain.sequence]
+        """[staples domain melting temperature.]
 
-        for staple in self.all_staples:
-            for domain in staple.domain_list:
+        Returns:
+            dict: [key: staple. values: list of domains' melting temperature.]
+        """
+        staple_domains_melt_t = {}
+
+        for staple, domains in self.domain_data.items():
+            for domain in domains:
                 if "N" not in domain.sequence:
+                    # NOTE: using nearest neighbor for domain with length higher than 14
                     if len(domain.base_list) > 14:
-                        domain_seq[domain.sequence] = MeltingTemp.Tm_NN(
-                            Seq(domain.sequence))
+                        staple_domains_melt_t.setdefault(staple, []).append(MeltingTemp.Tm_NN(
+                            Seq(domain.sequence), Na=0, Mg=17.5))
+
+                    # NOTE: using 'Wallace rule' for domain with length less than 14
                     else:
-                        domain_seq[domain.sequence] = MeltingTemp.Tm_Wallace(
-                            Seq(domain.sequence))
-        for seq in domain_seq.keys():
-            if 12 < len(seq) < 16:  # and domain_seq[seq] < 20:
-                special[seq] = domain_seq[seq]
-        length = [len(a) for a in domain_seq.keys()]
-        plt.scatter(length, domain_seq.values())
-        plt.xticks(list(set(length)))
-        plt.xlabel('Seq_Length')
-        plt.ylabel('Melt_T')
-        plt.show()
+                        staple_domains_melt_t.setdefault(staple, []).append(MeltingTemp.Tm_Wallace(
+                            Seq(domain.sequence)))
 
         return staple_domains_melt_t
 
     def alpha_value(self):
-        max_staple_melt_t = dict()
-        high_melt_t_staples = dict()
+        """[alpha value : The ratio of number of staples having doamins with melting
+        temperature higher than critical temperature to the number of all staples in the structure]
 
-        for staple in self.staple_domains_melt_t.keys():
-            max_staple_melt_t.update(
-                {staple: max(self.staple_domains_melt_t[staple])})
-        T_crit = 45.
-        for staple, T in max_staple_melt_t.items():
-            T = max_staple_melt_t[staple]
-            if T >= T_crit:
-                good_staple = {staple: T}
-                high_melt_t_staples.update(good_staple)
-        alpha_value = len(high_melt_t_staples) / len(self.all_staples)
+        Returns:
+            [dict]: [alpha values of the structure for different critical temperatures]
+        """
 
-        return alpha_value
+        T_crit = {40: int, 55: int, 70: int}
+
+        def calculate(self, T_crit):
+            """
+            [calculates alpha value for a given critical temperature]
+            """
+            return sum([True for T in list(self.max_staple_melt_t.values()) if T >= T_crit]) / len(self.max_staple_melt_t)
+
+        alpha_values = {T: calculate(self, T) for T in T_crit}
+
+        return alpha_values
 
     def get_staples_with_long_domains(self) -> list:
         """[long domain are domains with 14 and more bases]
@@ -327,7 +328,7 @@ class DesignData(object):
 
         df_staple = pd.DataFrame(data, columns=list(data.keys())
                                  )
-        df_staple.to_csv(r'staple.csv')
+        # df_staple.to_csv(r'staple.csv')
 
         return df_staple
 
@@ -994,11 +995,17 @@ class DesignData(object):
                             export["{}_{}_{}".format(
                                 name, strand_name, typ)] = n_co
 
-            elif name in ["staples_length", "helices_staples_pass", "n_staples_domains", "long_domains", "stacks_length", "loops_length"]:
-                stats = get_statistics(value, name)
+            elif name in ["staples_length", "helices_staples_pass", "n_staples_domains",
+                          "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length"]:
 
+                stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
+
+            elif name == "alpha_value":
+                for temp, alpha_value in value.items():
+                    export[f"{name}_{temp}"] = alpha_value
+
             elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
                 export[name] = len(value)
             else:
