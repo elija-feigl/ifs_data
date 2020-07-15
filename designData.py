@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-3
 
-from utils import get_statistics
 import nanodesign as nd
 import numpy as np
-from pathlib import Path
-import argparse
-import pandas as pd
 from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
 from Bio.Seq import Seq
-import matplotlib.pyplot as plt
-
 from classes.crossover import Crossover
 from classes.nicks import Nick
 from statistics import mean
@@ -56,40 +50,6 @@ class DesignData(object):
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
         self.blunt_ends = self.get_blunt_ends()
-
-    def compute_data(self) -> None:
-        data = {}
-        data["name"] = self.name
-        data["lattice_type"] = self.get_lattice_type()
-        data["dim_x"], data["dim_y"], data["dim_z"] = self.get_dimension()
-        data['alpha_value'] = self.alpha_value
-        data["n_helices"] = len(self.dna_structure.structure_helices_map)
-        data["n_skips"] = self.get_n_skips()
-        data["n_nicks"] = len(self.nicks)
-        data["n_stacks"] = len(self.get_stacks())
-        data["stacks_length"] = self.get_n_stacks()
-        data["loops_length"] = self.loops_length_list
-        data.update(self.get_insertion_deletion_density())
-        data["n_bluntends"] = len(self.get_blunt_ends())
-
-        # staple stats
-        data["n_staples"] = len(self.get_all_staple())
-        data["staples_length"] = self.get_staples_length()
-        data["helices_staples_pass"] = list(
-            self.num_staple_helix_dict.values())
-
-        # domains
-        data["n_staples_domains"] = self.get_staple_domain()
-        data["long_domains"] = self.get_staples_with_long_domains()
-        data.update(self.divide_domain_lengths())
-        data["staple_domain_melt_T"] = list(self.max_staple_melt_t.values())
-
-        # crossovers
-        data["co_set"] = self.classify_crossovers()
-        data.update(self.get_all_full_scaff_crossover_types())
-        data["co_possible"], data["co_density"] = self.get_co_density()
-
-        self.data = data
 
     def init_design(self):
         converter = nd.converters.Converter(modify=True, logg=False)
@@ -198,13 +158,10 @@ class DesignData(object):
 
     def get_all_bases(self) -> list:
         all_bases = list()
-        all_seq = list()
         for strand in self.all_strands:
             if strand.is_scaffold:
                 for base in strand.tour:
                     all_bases.append(base)
-                    all_seq.append(base.seq)
-        seqs = "".join(str(v) for v in all_seq)
         return all_bases
 
     def get_staples_length(self) -> list:
@@ -844,7 +801,7 @@ class DesignData(object):
                                }
         # part 1: number of possible crossovers
         helices = self.dna_structure_skips.structure_helices_map.values()
-        a = list()  # debug
+
         for helix in helices:
             helix_row = helix.lattice_row
 
@@ -943,59 +900,3 @@ class DesignData(object):
                 loops.append(sub)
 
         return loops
-
-    def prep_data_for_export(self) -> dict:
-        export = dict()
-        for name, value in self.data.items():
-            if name in ["co_set", "co_possible", "co_density"]:
-                for strand_name, subtypes in value.items():
-                    for typ, n_co in subtypes.items():
-                        if (strand_name == 'scaffold') and (typ in ['half', 'half_v', 'half_h']):
-                            pass
-                        else:
-                            export["{}_{}_{}".format(
-                                name, strand_name, typ)] = n_co
-
-            elif name in ["staples_length", "helices_staples_pass", "n_staples_domains",
-                          "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length"]:
-
-                stats = get_statistics(value, name)
-                for stat_name, stat in stats.items():
-                    export[stat_name] = stat
-
-            elif name == "alpha_value":
-                for temp, alpha_value in value.items():
-                    export[f"{name}_{temp}"] = alpha_value
-
-            elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
-                export[name] = len(value)
-            else:
-                export[name] = value
-
-        return export
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("-i", "--input",
-                        help="input file",
-                        type=str,
-                        default="TTcorr.json",
-                        )
-    args = parser.parse_args()
-    json = Path(args.input)
-    outname = "{}-stat.csv".format(json.name)
-    designdata = DesignData(json=json, name=json.name, seq='8064')
-    designdata.compute_data()
-    data = designdata.prep_data_for_export()
-    with open(outname, mode="w+") as outfile:
-        header = ",".join(str(k) for k in data.keys())
-        outfile.write(header + "\n")
-        export = ",".join(str(v) for v in data.values())
-        outfile.write(export + "\n")
-
-
-if __name__ == "__main__":
-    main()

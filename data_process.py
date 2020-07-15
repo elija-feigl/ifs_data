@@ -12,6 +12,7 @@ from datetime import date
 
 from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES
 from designData import DesignData
+from compute_data import Compute
 
 
 __authors__ = ["Elija Feigl", "Kourosh Zargari"]
@@ -137,13 +138,13 @@ def main():
                 logger.error(e_)
                 continue
             try:
-                designdata.compute_data()
+                Compute.compute_data(designdata)
             except Exception as e:
                 e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
                 continue
 
-            json_data = designdata.prep_data_for_export()
+            json_data = Compute.prep_data_for_export(designdata)
             data = {**mat_data, **json_data}
 
             try:
