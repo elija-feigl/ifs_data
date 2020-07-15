@@ -36,7 +36,6 @@ class DesignData(object):
         self.n_st_domains = self.get_staple_domain()
         self.long_domains = self.get_staples_with_long_domains()
         self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
-        self.df_staple = self.staple_dataframe()
         self.helices = self.dna_structure.structure_helices_map
         # NOTE: dictionary of staples and maximum melting temp of domains for each staple
         self.max_staple_melt_t = {key: max(value) for (
@@ -53,7 +52,6 @@ class DesignData(object):
 
         self.stacks = self.get_stacks()
         self.pos = self.full_scaff_type()
-        self.df_crossover = self.crossover_dataframe()
         self.loops_length_list = self.get_loops()
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
@@ -307,31 +305,6 @@ class DesignData(object):
                 n += 1
         return n
 
-    def staple_dataframe(self):
-        data = {
-            'ID': [], 'length': [], 'n_helices': [], 'helices': [], "n_domains": [], "domain_lengths": [],
-            "domain_melt_t": [], "n_long_domains": [], 'position_5prime': []
-        }
-        for staple in self.all_staples:
-            data['ID'].append(staple.id)
-            data['length'].append(len(staple.tour))
-            data['n_helices'].append(
-                len(self.staple_helix_dict[staple]))
-            data['helices'].append(
-                list(self.staple_helix_dict[staple]))
-            data["n_domains"].append(len(self.domain_data[staple]))
-            data['domain_lengths'].append(self.staple_domains_length[staple])
-            data["domain_melt_t"].append(self.staple_domains_melt_t[staple])
-            data['n_long_domains'].append(self.staple_long_domian(staple))
-            first = (staple.tour[0].h, staple.tour[0].p)
-            data['position_5prime'].append(first)
-
-        df_staple = pd.DataFrame(data, columns=list(data.keys())
-                                 )
-        # df_staple.to_csv(r'staple.csv')
-
-        return df_staple
-
     def divide_domain_lengths(self) -> dict:
         long_st_domain = list()
         domain_unpaired = list()
@@ -455,10 +428,17 @@ class DesignData(object):
         full_crossovers = list()
         half_crossovers = list()
 
-        for co in co_list:
-            crossover = Crossover(typ, co, self.helices)
-            list_name.append(crossover)
-            all_crossovers.append(crossover)
+        crossovers_dict = {
+            "full": self.full_co_tuples,
+            "half": self.half_co_tuples,
+            "end": self.end_co_tuples
+        }
+
+        def create_list(typ, list_name, all_crossovers, co_list):
+            for co in co_list:
+                crossover = Crossover(typ, co, self.helices)
+                list_name.append(crossover)
+                all_crossovers.append(crossover)
 
         for typ, crossovers in crossovers_dict.items():
 
@@ -472,23 +452,6 @@ class DesignData(object):
             create_list(typ, list_name, all_crossovers, crossovers)
 
         return all_crossovers, full_crossovers, half_crossovers, endloops
-
-    def crossover_dataframe(self):
-        data = {
-            'type': [], 'strand_type': [], 'helices': [],
-            'orientation': [], 'positions': [], 'Cadnano_type(integers)': []
-        }
-        for co in self.all_crossovers:
-            data['type'].append(co.typ)
-            data['strand_type'].append(co.strand_typ)
-            data['helices'].append(tuple(co.h))
-            data['orientation'].append(co.orientation)
-            data['positions'].append(co.coordinate)
-            data['Cadnano_type(integers)'].append(co.scaff_full_type)
-
-        df_crossover = pd.DataFrame(data, columns=list(data.keys()))
-        # df_crossover.to_csv(r'crossover_df.csv')
-        return df_crossover
 
     def full_scaff_type(self):
         """[type of the full scaffold crossover depending on the position suggested by cadnano]
