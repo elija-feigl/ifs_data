@@ -455,23 +455,21 @@ class DesignData(object):
         full_crossovers = list()
         half_crossovers = list()
 
-        for full_co in self.full_co_tuples:
-            typ = 'full'
-            full_crossover = Crossover(typ, full_co, self.helices)
-            full_crossovers.append(full_crossover)
-            all_crossovers.append(full_crossover)
+        for co in co_list:
+            crossover = Crossover(typ, co, self.helices)
+            list_name.append(crossover)
+            all_crossovers.append(crossover)
 
-        for end in self.end_co_tuples:
-            typ = 'end'
-            endloop = Crossover(typ, end, self.helices)
-            endloops.append(endloop)
-            all_crossovers.append(endloop)
+        for typ, crossovers in crossovers_dict.items():
 
-        for half in self.half_co_tuples:
-            typ = 'half'
-            half = Crossover(typ, half, self.helices)
-            half_crossovers.append(half)
-            all_crossovers.append(half)
+            if typ == 'full':
+                list_name = full_crossovers
+            elif typ == 'end':
+                list_name = endloops
+            elif typ == 'half':
+                list_name = half_crossovers
+
+            create_list(typ, list_name, all_crossovers, crossovers)
 
         return all_crossovers, full_crossovers, half_crossovers, endloops
 
