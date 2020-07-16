@@ -22,8 +22,8 @@ class DesignData(object):
         self.get_all_staple()
         self.num_staple_helix_dict = dict()
         self.staple_helix_dict: dict = self.init_helix_dict()
-        self.hps_base_skips = self.init_hps_skips()
-        self.hps_base = self.init_hps()
+        self.hps_base_skips = self.__init_hps_skips()
+        self.hps_base = self._init_hps()
         self.data: dict = {}
         self.domain_data: dict = {}
         self.domain_lengths_data = dict()
@@ -78,19 +78,19 @@ class DesignData(object):
         self.staples = [
             strand for strand in self.strands if not strand.is_scaffold]
 
-    def init_hps(self) -> dict:
+    def _init_hps(self) -> dict:
         hps_base = dict()
         for strand in self.dna_structure.strands:
             hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
 
         return hps_base
 
-    def init_hps_skips(self) -> dict:
-        hps_base_skips = {}
+    def __init_hps_skips(self) -> dict:
+        hps_base_skips = dict()
         for strand in self.dna_structure_skips.strands:
-            for base in strand.tour:
-                position = (base.h, base.p, base.is_scaf)
-                hps_base_skips[position] = base
+            hps_base_skips.update(
+                {(base.h, base.p, base.is_scaf): base for base in strand.tour})
+
         return hps_base_skips
 
     def get_base_from_hps(self, h, p, is_scaffold, dir=1):
