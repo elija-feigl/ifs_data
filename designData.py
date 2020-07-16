@@ -47,6 +47,7 @@ class DesignData(object):
 
         self.stacks = self.get_stacks()
         self.stacks_lengths = self.get_stacks_lengths()
+        self.pos = self.full_scaff_type()
         self.loops_length_list = self.get_loops()
         self._get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
@@ -78,11 +79,10 @@ class DesignData(object):
             strand for strand in self.strands if not strand.is_scaffold]
 
     def init_hps(self) -> dict:
-        hps_base = {}
+        hps_base = dict()
         for strand in self.dna_structure.strands:
-            for base in strand.tour:
-                position = (base.h, base.p, base.is_scaf)
-                hps_base[position] = base
+            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+
         return hps_base
 
     def init_hps_skips(self) -> dict:
@@ -381,6 +381,7 @@ class DesignData(object):
 
             if typ == 'full':
                 list_name = full_crossovers
+
             elif typ == 'end':
                 list_name = endloops
             elif typ == 'half':

@@ -2,7 +2,8 @@ from typing import Optional
 
 
 class Crossover(object):
-    __slots__ = ["typ", "scaff_full_type", "coordinate", "h", "p", "orientation", "bases", "strand_typ"]
+    __slots__ = ["typ", "scaff_full_type", "coordinate",
+                 "h", "p", "orientation", "bases", "strand_typ"]
 
     def __init__(self, typ, con_tuple, helices):
         """
@@ -44,7 +45,8 @@ class Crossover(object):
         if con_tuple[1] is None:
             self.bases = tuple(tmp_bases)
         else:
-            self.bases = tuple(tmp_bases) if tmp_bases[0][0].p < tmp_bases[1][0].p else tuple(tmp_bases[::-1])
+            self.bases = tuple(
+                tmp_bases) if tmp_bases[0][0].p < tmp_bases[1][0].p else tuple(tmp_bases[::-1])
 
         first_base = self.bases[0][0]
         self.strand_typ = 'scaffold' if first_base.is_scaf else 'staple'
