@@ -86,8 +86,7 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf)
-                            : base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
 
         return hps_base
 
@@ -189,17 +188,21 @@ class DesignData(object):
         return staples_length
 
     def get_staple_domain_data(self) -> dict:
-        """[creates a dict of staples and their domains and another dict of staples and list of their domain lengths]
+        """[creates a three dictionary of staples and their domains informations]
+
+        Returns:
+            domain_data:  [dictionary of staples and list of their domains]
+            domain_lengths_data:  [dictionary of staples and list of their domains lengths]
+            n_staples_domains:  [dictionary of staples and number of their domains]
         """
 
         self.domain_data.update(
             {staple: staple.domain_list for staple in self.staples})
-        # self.domain_data = domain_data
 
         for staple, domains in self.domain_data.items():
-            self.domain_lengths_data.update({
-                staple: [len(domain.base_list) for domain in domains]})
-        # self.domain_lengths_data = domain_lengths_data
+            self.domain_lengths_data.update(
+                {staple: [len(domain.base_list) for domain in domains]})
+
         self.n_staples_domains = {staple: len(
             self.domain_data[staple]) for staple in self.domain_data.keys()}
 
