@@ -191,9 +191,9 @@ class DesignData(object):
         """[creates a three dictionary of staples and their domains informations]
 
         Returns:
-            domain_data:  [dictionary of staples and list of their domains]
-            domain_lengths_data:  [dictionary of staples and list of their domains lengths]
-            n_staples_domains:  [dictionary of staples and number of their domains]
+            dict -- domain_data:  [dictionary of staples and list of their domains]
+            dict -- domain_lengths_data:  [dictionary of staples and list of their domains lengths]
+            dict -- n_staples_domains:  [dictionary of staples and number of their domains]
         """
 
         self.domain_data.update(
@@ -265,39 +265,35 @@ class DesignData(object):
         return n_long_domains
 
     def divide_domain_lengths(self) -> dict:
-        long_st_domain = list()
+        """[divide staples having 0, 1, 2 or more long domains ]
+
+        Returns:
+            dict: [
+                2_long_domains: two or more long domains,
+                1_long_domains: having only one long domain,
+                0_long_domains: having no long domain,
+                co_rule_violation: unpaired domains with less than 5 bases]
+        """
+
         domain_unpaired = list()
 
-        data = {
-            "2_long_domains": list(),
-            "1_long_domains": list(),
-            "0_long_domains": list(),
-            "co_rule_violation": list()
-        }
+        data = dict()
 
-        for strand in self.staples:
-            for domain in strand.domain_list:
-                if len(domain.base_list) >= 14:
-                    long_st_domain.append(strand)
+        for staple, n_longs in self.long_domains.items():
+            if n_longs >= 2:
+                data.setdefault("2_long_domains", []).append(staple)
+            elif n_longs == 1:
+                data.setdefault("1_long_domains", []).append(staple)
+            elif n_longs == 0:
+                data.setdefault("0_long_domains", []).append(staple)
 
-                for base in domain.base_list:
-                    if base.across is None:
-                        domain_unpaired.append(domain)
-                        break
+        for staple, domains in self.domain_data.items():
+            domain_unpaired.extend([
+                domain for domain in domains if domain.base_list[0].across is None])
 
-            if len(long_st_domain) >= 2:
-                data["2_long_domains"].append(strand)
-            elif len(long_st_domain) == 1:
-                data["1_long_domains"].append(strand)
-            elif len(long_st_domain) == 0:
-                data["0_long_domains"].append(strand)
-            long_st_domain = list()
-
-        for strand in self.staples:
-            for domain in strand.domain_list:
-                if domain not in domain_unpaired:
-                    if len(domain.base_list) < 5:
-                        data["co_rule_violation"].append(domain)
+        for staple, domains in self.domain_data.items():
+            data.setdefault("co_rule_violation", []).extend(
+                [domain for domain in domains if domain not in domain_unpaired and len(domain.base_list) < 5])
 
         return data
 
