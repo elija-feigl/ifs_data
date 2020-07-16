@@ -15,8 +15,8 @@ class Compute(object):
         data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
         data["n_skips"] = designdata.get_n_skips()
         data["n_nicks"] = len(designdata.nicks)
-        data["n_stacks"] = len(designdata.get_stacks())
-        data["stacks_length"] = designdata.get_n_stacks()
+        data["n_stacks"] = len(designdata.stacks)
+        data["stacks_length"] = designdata.stacks_lengths
         data["loops_length"] = designdata.loops_length_list
         data.update(designdata.get_insertion_deletion_density())
         data["n_bluntends"] = len(designdata.get_blunt_ends())
@@ -29,7 +29,7 @@ class Compute(object):
 
         # domains
         data["n_staples_domains"] = designdata.get_staple_domain()
-        data["long_domains"] = designdata.get_staples_with_long_domains()
+        data["long_domains"] = list(designdata.long_domains.values())
         data.update(designdata.divide_domain_lengths())
         data["staple_domain_melt_T"] = list(
             designdata.max_staple_melt_t.values())
@@ -85,8 +85,8 @@ def main():
     json = Path(args.input)
     outname = "{}-stat.csv".format(json.name)
     designdata = DesignData(json=json, name=json.name, seq='8064')
-    designdata.compute_data()
-    data = designdata.prep_data_for_export()
+    Compute.compute_data(designdata)
+    data = Compute.prep_data_for_export(designdata)
     with open(outname, mode="w+") as outfile:
         header = ",".join(str(k) for k in data.keys())
         outfile.write(header + "\n")

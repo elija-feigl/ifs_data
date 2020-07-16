@@ -49,7 +49,8 @@ def process_mat_file(mat_file: IO) -> dict:
         info = gel_info if prop in GEL_PROPERTIES else fold_info
         is_set = (prop in info.dtype.names)
         # NOTE: why is this in here twice?
-        if prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"] and is_set:
+        if prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized",
+                    "migrationDistanceNormalized", "fractionPocket", "fractionSmear"] and is_set:
             prop_str = str(info[prop].item()[best_idx])
         elif is_set:
             prop_str = str(info[prop]).replace(",", ".")
@@ -57,7 +58,8 @@ def process_mat_file(mat_file: IO) -> dict:
             prop_str = " "
         data.update({prop: prop_str.lower()})
 
-    for prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]:
+    for prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized",
+                 "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]:
         if prop in fold_info.dtype.names:
             prop_float = fold_info[prop].item()[best_idx]
         else:

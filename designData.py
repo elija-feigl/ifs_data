@@ -45,7 +45,8 @@ class DesignData(object):
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
 
         self.stacks = self.get_stacks()
-        self.pos = self.full_scaff_type()
+        self.stacks_lengths = self.get_stacks_lengths()
+        # self.pos = self.full_scaff_type()
         self.loops_length_list = self.get_loops()
         self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
@@ -234,33 +235,20 @@ class DesignData(object):
 
         return alpha_values
 
-    def get_staples_with_long_domains(self) -> list:
+    def get_staples_with_long_domains(self) -> dict:
         """[long domain are domains with 14 and more bases]
 
         Returns:
-            list -- [numbers of long_domains for the list of all strands]
+            dict -- [staples : numbers of long_domains for the each staple]
         """
-        n_long_domains = list()
-        for strand in self.all_strands:
-            lengths = list()
-            if not strand.is_scaffold:
-                dummy = list()
-                for domain in strand.domain_list:
-                    lengths.append(len(domain.base_list))
-                    if len(domain.base_list) >= 14:
-                        dummy.append(strand)
-                n_long_domains.append(len(dummy))
-
-            self.staple_domains_length[strand] = lengths
+        n_long_domains = dict()
+        for staple, domains in self.domain_data.items():
+            n_long_domains.setdefault(staple, 0)
+            for domain in domains:
+                if len(domain.base_list) > 14:
+                    n_long_domains[staple] += 1
 
         return n_long_domains
-
-    def staple_long_domian(self, staple):
-        n = 0
-        for domain in staple.domain_list:
-            if len(domain.base_list) >= 14:
-                n += 1
-        return n
 
     def divide_domain_lengths(self) -> dict:
         long_st_domain = list()
@@ -636,8 +624,7 @@ class DesignData(object):
     def get_stacks(self):
         """[get the list of all stacks in the structure]
 
-        return  [stacks: a list of stacks
-                n_stacks: a list of length of each stack ]
+        return  [stacks: a list of stacks]
         """
 
         stacks = list()
@@ -735,11 +722,11 @@ class DesignData(object):
 
         return stacks
 
-    def get_n_stacks(self):
-        n_stacks = list()
+    def get_stacks_lengths(self):
+        stacks_lengths = list()
         for stack in self.stacks:
-            n_stacks.append(len(stack))
-        return n_stacks
+            stacks_lengths.append(len(stack))
+        return stacks_lengths
 
     def get_co_density(self):
         """[calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)]

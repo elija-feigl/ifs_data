@@ -19,7 +19,7 @@ def staple_dataframe(designdata):
         data["n_domains"].append(len(designdata.domain_data[staple]))
         data['domain_lengths'].append(designdata.staple_domains_length[staple])
         data["domain_melt_t"].append(designdata.staple_domains_melt_t[staple])
-        data['n_long_domains'].append(designdata.staple_long_domian(staple))
+        data['n_long_domains'].append(designdata.long_domian(staple))
         first = (staple.tour[0].h, staple.tour[0].p)
         data['position_5prime'].append(first)
 
