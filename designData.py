@@ -22,8 +22,8 @@ class DesignData(object):
         self.get_all_staple()
         self.num_staple_helix_dict = dict()
         self.staple_helix_dict: dict = self.init_helix_dict()
-        self.hps_base_skips = self.__init_hps_skips()
         self.hps_base = self._init_hps()
+        self.hps_base_skips = self._init_hps_skips()
         self.data: dict = {}
         self.domain_data: dict = {}
         self.domain_lengths_data = dict()
@@ -79,13 +79,24 @@ class DesignData(object):
             strand for strand in self.strands if not strand.is_scaffold]
 
     def _init_hps(self) -> dict:
+        """[create a dictionary of bases positions and the bases itself for all bases in the structure excluding the skips]
+
+        Returns:
+            dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
+        """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf)
+                            : base for base in strand.tour})
 
         return hps_base
 
-    def __init_hps_skips(self) -> dict:
+    def _init_hps_skips(self) -> dict:
+        """[create a dictionary of bases positions and the bases itself for all bases in the structure including the skips]
+
+        Returns:
+            dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
+        """
         hps_base_skips = dict()
         for strand in self.dna_structure_skips.strands:
             hps_base_skips.update(
@@ -93,7 +104,7 @@ class DesignData(object):
 
         return hps_base_skips
 
-    def get_base_from_hps(self, h, p, is_scaffold, dir=1):
+    def _get_base_from_hps(self, h, p, is_scaffold, dir=1):
         """[get the base object from its coordination: (h, p is_scaffold)]
 
         Arguments:
@@ -120,8 +131,8 @@ class DesignData(object):
             [base_plus] -- [base with one position up along the helix]
             [base_minus] -- [base with on position down along the helix]
         """
-        base_plus = self.get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-        base_minus = self.get_base_from_hps(
+        base_plus = self._get_base_from_hps(base.h, base.p + 1, base.is_scaf)
+        base_minus = self._get_base_from_hps(
             base.h, base.p - 1, base.is_scaf, dir=-1)
 
         return base_plus, base_minus
@@ -330,10 +341,8 @@ class DesignData(object):
     def get_nicks(self) -> int:
         nicks = list()
         for base in self.first_bases:
-            base_plus = self.get_base_from_hps(
-                base.h, base.p + 1, base.is_scaf)
-            base_minus = self.get_base_from_hps(
-                base.h, base.p - 1, base.is_scaf, dir=-1)
+            base_plus, base_minus = self.get_base_plus_minus(base)
+
             if base_plus in self.last_bases:
                 # order of nick is always (first,last)
                 bases = (base, base_plus)
@@ -538,10 +547,7 @@ class DesignData(object):
     def _get_endloop(self) -> list:
         for co in self.all_co_sets:
             for base in co:
-                base_plus = self.get_base_from_hps(
-                    base.h, base.p + 1, base.is_scaf)
-                base_minus = self.get_base_from_hps(
-                    base.h, base.p - 1, base.is_scaf, dir=-1)
+                base_plus, base_minus = self.get_base_plus_minus(base)
 
                 if (base_plus is None) or (base_minus is None):
                     if co not in self.end_co_sets:
