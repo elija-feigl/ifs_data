@@ -9,7 +9,7 @@ def staple_dataframe(designdata):
         'ID': [], 'length': [], 'n_helices': [], 'helices': [], "n_domains": [], "domain_lengths": [],
         "domain_melt_t": [], "n_long_domains": [], 'position_5prime': []
     }
-    for staple in designdata.all_staples:
+    for staple in designdata.staples:
         data['ID'].append(staple.id)
         data['length'].append(len(staple.tour))
         data['n_helices'].append(

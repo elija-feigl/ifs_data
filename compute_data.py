@@ -22,13 +22,13 @@ class Compute(object):
         data["n_bluntends"] = len(designdata.get_blunt_ends())
 
         # staple stats
-        data["n_staples"] = len(designdata.get_all_staple())
+        data["n_staples"] = len(designdata.staples)
         data["staples_length"] = designdata.get_staples_length()
         data["helices_staples_pass"] = list(
             designdata.num_staple_helix_dict.values())
 
         # domains
-        data["n_staples_domains"] = designdata.get_staple_domain_data()
+        data["n_staples_domains"] = list(designdata.n_staples_domains.values())
         data["long_domains"] = list(designdata.long_domains.values())
         data.update(designdata.divide_domain_lengths())
         data["staple_domain_melt_T"] = list(

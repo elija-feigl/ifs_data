@@ -17,9 +17,9 @@ class DesignData(object):
         self.name: str = name
         self.seq: str = seq
         self.dna_structure, self.dna_structure_skips = self.init_design()
-        self.all_strands: list = self.dna_structure.strands
-        self.all_bases: list = self.get_all_bases()
-        self.all_staples: list = self.get_all_staple()
+        self.strands: list = self.dna_structure.strands
+        self.scaf_bases: list = self.get_all_scaf_bases()
+        self.get_all_staple()
         self.num_staple_helix_dict = dict()
         self.staple_helix_dict: dict = self.init_helix_dict()
         self.hps_base_skips = self.init_hps_skips()
@@ -27,6 +27,7 @@ class DesignData(object):
         self.data: dict = {}
         self.domain_data: dict = {}
         self.domain_lengths_data = dict()
+        self.n_staples_domains = dict()
         self.get_staple_domain_data()
         self.long_domains = self.get_staples_with_long_domains()
         self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
@@ -46,9 +47,8 @@ class DesignData(object):
 
         self.stacks = self.get_stacks()
         self.stacks_lengths = self.get_stacks_lengths()
-        # self.pos = self.full_scaff_type()
         self.loops_length_list = self.get_loops()
-        self.first_bases, self.last_bases = self._get_first_last_bases_of_strands()
+        self._get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
         self.blunt_ends = self.get_blunt_ends()
 
@@ -72,6 +72,10 @@ class DesignData(object):
         start.up, end.down = end, start
         self.dna_structure.strands[start.strand].is_circular = True
         return strand
+
+    def get_all_staple(self) -> list:
+        self.staples = [
+            strand for strand in self.strands if not strand.is_scaffold]
 
     def init_hps(self) -> dict:
         hps_base = {}
@@ -142,7 +146,7 @@ class DesignData(object):
 
         lattice_cols = [helix.lattice_col for helix in self.helices.values()]
         lattice_rows = [helix.lattice_row for helix in self.helices.values()]
-        base_pos = [base.p for base in self.all_bases]
+        base_pos = [base.p for base in self.scaf_bases]
 
         a = max(lattice_cols) - min(lattice_cols) + 1
         b = max(lattice_rows) - min(lattice_rows) + 1
@@ -152,17 +156,18 @@ class DesignData(object):
 
         return dimension
 
-    def get_all_bases(self) -> list:
-        all_bases = list()
-        for strand in self.all_strands:
-            if strand.is_scaffold:
-                for base in strand.tour:
-                    all_bases.append(base)
-        return all_bases
+    def get_all_scaf_bases(self) -> list:
+
+        all_scaf_bases = list()
+        for strand in self.strands:
+            all_scaf_bases.extend(
+                [base for base in strand.tour if strand.is_scaffold])
+
+        return all_scaf_bases
 
     def get_staples_length(self) -> list:
         len_strands = list()
-        for strand in self.all_strands:
+        for strand in self.strands:
             if not strand.is_scaffold:
                 tour_clean = [base for base in strand.tour]
                 len_strands.append(len(tour_clean))
@@ -175,17 +180,16 @@ class DesignData(object):
         """[creates a dict of staples and their domains and another dict of staples and list of their domain lengths]
         """
 
-        domain_data = dict()
-        domain_lengths_data = dict()
-
-        domain_data.update(
-            {staple: staple.domain_list for staple in self.all_staples})
-        self.domain_data = domain_data
+        self.domain_data.update(
+            {staple: staple.domain_list for staple in self.staples})
+        # self.domain_data = domain_data
 
         for staple, domains in self.domain_data.items():
-            domain_lengths_data.update({
+            self.domain_lengths_data.update({
                 staple: [len(domain.base_list) for domain in domains]})
-        self.domain_lengths_data = domain_lengths_data
+        # self.domain_lengths_data = domain_lengths_data
+        self.n_staples_domains = {staple: len(
+            self.domain_data[staple]) for staple in self.domain_data.keys()}
 
     def staple_domains_melt_t(self) -> dict:
         """[staples domain melting temperature.]
@@ -256,7 +260,7 @@ class DesignData(object):
             "co_rule_violation": list()
         }
 
-        for strand in self.all_staples:
+        for strand in self.staples:
             for domain in strand.domain_list:
                 if len(domain.base_list) >= 14:
                     long_st_domain.append(strand)
@@ -274,20 +278,13 @@ class DesignData(object):
                 data["0_long_domains"].append(strand)
             long_st_domain = list()
 
-        for strand in self.all_staples:
+        for strand in self.staples:
             for domain in strand.domain_list:
                 if domain not in domain_unpaired:
                     if len(domain.base_list) < 5:
                         data["co_rule_violation"].append(domain)
 
         return data
-
-    def get_all_staple(self) -> int:
-        all_staples = list()
-        for strand in self.all_strands:
-            if not strand.is_scaffold:
-                all_staples.append(strand)
-        return all_staples
 
     def init_helix_dict(self) -> dict:
         """
@@ -297,7 +294,7 @@ class DesignData(object):
         num_staple_helix_dict = {}
         helices_list = list()
         helices_length_list = list()
-        for strand in self.all_staples:
+        for strand in self.staples:
             helices = set()
             helices.add(strand.tour[0].h)
             for base in strand.tour:
@@ -317,12 +314,12 @@ class DesignData(object):
     def _get_first_last_bases_of_strands(self) -> list:
         first_bases = set()
         last_bases = set()
-        for strand in self.all_strands:
+        for strand in self.strands:
             if not strand.is_scaffold:
                 first_bases.add(strand.tour[0])
                 last_bases.add(strand.tour[-1])
-
-        return first_bases, last_bases
+        self.first_bases = first_bases
+        self.last_bases = last_bases
 
     def first_last_strand_base(self, staple):
         first_bases = staple.tour[0]
@@ -459,13 +456,13 @@ class DesignData(object):
         all_co_tuples = set()
         all_co_lists = list()
         all_co_sets = list()
-        for strand in self.all_strands:
+        for strand in self.strands:
             if strand.is_scaffold:
 
                 new_strand = self._close_strand(strand)
-                self.all_strands[strand.id] = new_strand
+                self.strands[strand.id] = new_strand
 
-        for strand in self.all_strands:
+        for strand in self.strands:
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
                     co_tuple = set()
@@ -611,8 +608,8 @@ class DesignData(object):
                     base_ins += 1
 
         data["del_density"] = len(
-            self.dna_structure.Dhp_skips) / len(self.all_bases)
-        data["ins_density"] = base_ins / len(self.all_bases)
+            self.dna_structure.Dhp_skips) / len(self.scaf_bases)
+        data["ins_density"] = base_ins / len(self.scaf_bases)
 
         return data
 
@@ -797,9 +794,9 @@ class DesignData(object):
                     else:
                         p_co = helix.possible_staple_crossovers
 
-                    x = [co[1] for co in p_co if (is_ds(pos=co[1], hid=helix.id) and
-                                                  orientation(typ, co[0], helix_row) and
-                                                  (co[1] in neighbour_bases(strand, co[0])))]
+                    x = [co[1] for co in p_co if (is_ds(pos=co[1], hid=helix.id)
+                                                  and orientation(typ, co[0], helix_row)
+                                                  and (co[1] in neighbour_bases(strand, co[0])))]
 
                     end, co = cleanup_co(sorted(x))
                     # TODO: devision by two is assumed for counting each possible_co two times for a helix and its neighbour
@@ -847,9 +844,9 @@ class DesignData(object):
                 for stack in stacks:
                     if stack[0].across is None or stack[1].across is None:
                         continue
-                    same_staple = (stack[0].across.strand ==
-                                   stack[1].across.strand)
-                    sc = self.all_strands[stack[0].strand]
+                    same_staple = (stack[0].across.strand
+                                   == stack[1].across.strand)
+                    sc = self.strands[stack[0].strand]
                     same_scaffold = (sc.id == stack[1].strand)
                     if same_staple and same_scaffold:
                         # NOTE: potentially (stack[0].residue -1) istead of tour(index)
@@ -867,7 +864,7 @@ class DesignData(object):
                         continue
                     if connection[0].across is None or connection[1].across is None:
                         continue
-                    sc = self.all_strands[connection[0].across.strand]
+                    sc = self.strands[connection[0].across.strand]
                     same_scaffold = (sc.id == connection[1].across.strand)
                     if same_scaffold:
                         base_1 = sc.tour.index(connection[0].across)
