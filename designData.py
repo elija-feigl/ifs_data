@@ -177,15 +177,16 @@ class DesignData(object):
         return all_scaf_bases
 
     def get_staples_length(self) -> list:
-        len_strands = list()
-        for strand in self.strands:
-            if not strand.is_scaffold:
-                tour_clean = [base for base in strand.tour]
-                len_strands.append(len(tour_clean))
-        return len_strands
+        """[creates a list of staples length]
 
-    def get_n_skips(self) -> int:
-        return len(self.dna_structure.Dhp_skips)
+        Returns:
+            list: [staples length]
+        """
+        staples_length = list()
+        for staple in self.staples:
+            staples_length.append(len([base for base in staple.tour]))
+
+        return staples_length
 
     def get_staple_domain_data(self) -> dict:
         """[creates a dict of staples and their domains and another dict of staples and list of their domain lengths]
@@ -737,6 +738,7 @@ class DesignData(object):
             is_st = (hid, pos, False) in self.hps_base_skips
             # (hid, pos) in self.skips (note: list of (h,p) for all skips)
             is_skip = False
+
             return ((is_sc or is_st) or is_skip)
 
         def cleanup_co(co_list):

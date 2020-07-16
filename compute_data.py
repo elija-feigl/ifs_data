@@ -13,7 +13,7 @@ class Compute(object):
         data["dim_x"], data["dim_y"], data["dim_z"] = designdata.get_dimension()
         data['alpha_value'] = designdata.alpha_value
         data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
-        data["n_skips"] = designdata.get_n_skips()
+        data["n_skips"] = len(designdata.dna_structure.Dhp_skips)
         data["n_nicks"] = len(designdata.nicks)
         data["n_stacks"] = len(designdata.stacks)
         data["stacks_length"] = designdata.stacks_lengths
