@@ -26,8 +26,8 @@ class DesignData(object):
         self.hps_base = self.init_hps()
         self.data: dict = {}
         self.domain_data: dict = {}
-        self.staple_domains_length = dict()
-        self.n_st_domains = self.get_staple_domain()
+        self.domain_lengths_data = dict()
+        self.get_staple_domain_data()
         self.long_domains = self.get_staples_with_long_domains()
         self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
         self.helices = self.dna_structure.structure_helices_map
@@ -176,21 +176,21 @@ class DesignData(object):
     def get_n_skips(self) -> int:
         return len(self.dna_structure.Dhp_skips)
 
-    def get_staple_domain(self) -> list:
+    def get_staple_domain_data(self) -> dict:
+        """[creates a dict of staples and their domains and another dict of staples and list of their domain lengths]
+        """
 
-        domain_data = {}
+        domain_data = dict()
+        domain_lengths_data = dict()
 
-        n_st_domains = list()  # number of domains for each staple
-        for strand in self.all_strands:
-            if not strand.is_scaffold:
-                data = {}
-                data = {strand: strand.domain_list}
-                domain_data.update(data)
+        domain_data.update(
+            {staple: staple.domain_list for staple in self.all_staples})
         self.domain_data = domain_data
-        for strand in domain_data.keys():
-            n_st_domains.append(len(domain_data[strand]))
-        # domin_data : is a dict that map the strand ID to the domains it has
-        return n_st_domains
+
+        for staple, domains in self.domain_data.items():
+            domain_lengths_data.update({
+                staple: [len(domain.base_list) for domain in domains]})
+        self.domain_lengths_data = domain_lengths_data
 
     def staple_domains_melt_t(self) -> dict:
         """[staples domain melting temperature.]

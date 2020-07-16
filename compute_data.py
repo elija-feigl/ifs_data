@@ -28,7 +28,7 @@ class Compute(object):
             designdata.num_staple_helix_dict.values())
 
         # domains
-        data["n_staples_domains"] = designdata.get_staple_domain()
+        data["n_staples_domains"] = designdata.get_staple_domain_data()
         data["long_domains"] = list(designdata.long_domains.values())
         data.update(designdata.divide_domain_lengths())
         data["staple_domain_melt_T"] = list(
