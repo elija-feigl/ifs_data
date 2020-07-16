@@ -140,14 +140,9 @@ class DesignData(object):
         NOTE: the values could be wrong for exotic designs
         """
 
-        lattice_rows = list()
-        lattice_cols = list()
-        base_pos = list()
-        for helix in self.helices.values():
-            lattice_rows.append(helix.lattice_row)
-            lattice_cols.append(helix.lattice_col)
-        for base in self.all_bases:
-            base_pos.append(base.p)
+        lattice_cols = [helix.lattice_col for helix in self.helices.values()]
+        lattice_rows = [helix.lattice_row for helix in self.helices.values()]
+        base_pos = [base.p for base in self.all_bases]
 
         a = max(lattice_cols) - min(lattice_cols) + 1
         b = max(lattice_rows) - min(lattice_rows) + 1
