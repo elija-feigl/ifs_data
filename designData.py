@@ -94,7 +94,8 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf)                             : base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf)
+                            : base for base in strand.tour})
 
         return hps_base
 
@@ -266,16 +267,10 @@ class DesignData(object):
         Returns:
             dict -- [staples : numbers of long_domains for the each staple]
         """
-        n_long_domains = dict()
-        for staple, domains in self.domain_data.items():
-            n_long_domains.setdefault(staple, 0)
-            for domain in domains:
-                if len(domain.base_list) > 14:
-                    n_long_domains[staple] += 1
-
-        return n_long_domains
+        return {staple: len(list(filter(lambda x: x > 14, domain_length))) for staple, domain_length in self.domain_lengths_data.items()}
 
     def divide_domain_lengths(self) -> dict:
+        # TODO: the designprocess data are not consistant in the old and new version
         """[divide staples having 0, 1, 2 or more long domains ]
 
         Returns:
@@ -286,23 +281,28 @@ class DesignData(object):
                 co_rule_violation: unpaired domains with less than 5 bases]
         """
 
-        data = dict()
+        data = {
+            "2_long_domains": list(),
+            "1_long_domains": list(),
+            "0_long_domains": list(),
+            "co_rule_violation": list()
+        }
         domain_unpaired = list()
 
         for staple, n_longs in self.long_domains.items():
             if n_longs >= 2:
-                data.setdefault("2_long_domains", []).append(staple)
+                data["2_long_domains"].append(staple)
             elif n_longs == 1:
-                data.setdefault("1_long_domains", []).append(staple)
+                data["1_long_domains"].append(staple)
             elif n_longs == 0:
-                data.setdefault("0_long_domains", []).append(staple)
+                data["0_long_domains"].append(staple)
 
         for staple, domains in self.domain_data.items():
             domain_unpaired.extend([
                 domain for domain in domains if domain.base_list[0].across is None])
 
         for staple, domains in self.domain_data.items():
-            data.setdefault("co_rule_violation", []).extend(
+            data["co_rule_violation"].extend(
                 [domain for domain in domains if domain not in domain_unpaired and len(domain.base_list) < 5])
 
         return data
@@ -318,13 +318,15 @@ class DesignData(object):
         """
         self.staple_helix_dict = dict()
         self.num_staple_helix_dict = dict()
+
+        # self.staple_helix_dict = {staple:tuple({base.h for base in staple.tour}) for staple in self.staples}
+        # self.staple_helix_dict = {staple:len(self.staple_helix_dict[staple]) for staple in self.staples}
+
         for staple in self.staples:
             self.staple_helix_dict.update(
                 {staple: tuple({base.h for base in staple.tour})})
             self.num_staple_helix_dict.update(
                 {staple: len(self.staple_helix_dict[staple])})
-            # self.num_staple_helix_dict.update(
-            #     {staple: len(tuple({base.h for base in staple.tour}))})
 
     def _get_first_last_bases_of_strands(self) -> list:
 
