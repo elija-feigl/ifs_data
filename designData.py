@@ -22,7 +22,7 @@ class DesignData(object):
 
         # strand, base
         self.strands: list = self.dna_structure.strands
-        self.get_all_staple()
+        self._get_staple()
         self.scaf_bases: list = self.get_all_scaf_bases()
         self.hps_base = self._init_hps()
         self.hps_base_skips = self._init_hps_skips()
@@ -46,7 +46,11 @@ class DesignData(object):
         self.end_co_sets = list()
         self.end_co_tuples = self._get_endloop()
         self.half_co_tuples = self._get_half_co()
-        self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
+        self.all_crossovers = list()
+        self.full_crossovers = list()
+        self.half_crossovers = list()
+        self.endloops = list()
+        self._create_crossover_lists()
         self.pos = self.full_scaff_type()
 
         # structure
@@ -78,7 +82,7 @@ class DesignData(object):
         self.dna_structure.strands[start.strand].is_circular = True
         return strand
 
-    def get_all_staple(self) -> list:
+    def _get_staple(self) -> list:
         self.staples = [
             strand for strand in self.strands if not strand.is_scaffold]
 
@@ -90,7 +94,7 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf)                             : base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
 
         return hps_base
 
@@ -345,7 +349,7 @@ class DesignData(object):
 
         return nicks
 
-    def create_crossover_lists(self):
+    def _create_crossover_lists(self):
         """[this method creates crossover objects in the dna origami structure]
 
         Returns:
@@ -354,10 +358,6 @@ class DesignData(object):
             [list] -- [half_crossovers: list of all half crossover object]
             [list] -- [endloops: list of all endloop object]
         """
-        all_crossovers = list()
-        endloops = list()
-        full_crossovers = list()
-        half_crossovers = list()
 
         crossovers_dict = {
             "full": self.full_co_tuples,
@@ -369,21 +369,19 @@ class DesignData(object):
             for co in co_list:
                 crossover = Crossover(typ, co, self.helices)
                 list_name.append(crossover)
-                all_crossovers.append(crossover)
+                self.all_crossovers.append(crossover)
 
         for typ, crossovers in crossovers_dict.items():
 
             if typ == 'full':
-                list_name = full_crossovers
+                list_name = self.full_crossovers
 
             elif typ == 'end':
-                list_name = endloops
+                list_name = self.endloops
             elif typ == 'half':
-                list_name = half_crossovers
+                list_name = self.half_crossovers
 
-            create_list(typ, list_name, all_crossovers, crossovers)
-
-        return all_crossovers, full_crossovers, half_crossovers, endloops
+            create_list(typ, list_name, self.all_crossovers, crossovers)
 
     def full_scaff_type(self):
         """[type of the full scaffold crossover depending on the position suggested by cadnano]
