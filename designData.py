@@ -322,7 +322,9 @@ class DesignData(object):
             self.staple_helix_dict.update(
                 {staple: tuple({base.h for base in staple.tour})})
             self.num_staple_helix_dict.update(
-                {staple: len(tuple({base.h for base in staple.tour}))})
+                {staple: len(self.staple_helix_dict[staple])})
+            # self.num_staple_helix_dict.update(
+            #     {staple: len(tuple({base.h for base in staple.tour}))})
 
     def _get_first_last_bases_of_strands(self) -> list:
 
@@ -812,7 +814,7 @@ class DesignData(object):
         return possible_crossovers, co_density
 
     def get_blunt_ends(self):
-
+        blunt_ends = set()
         for end in self.endloops:
             has_across = (end.bases[0][0].across is True) and (
                 end.bases[0][1].across is True)
