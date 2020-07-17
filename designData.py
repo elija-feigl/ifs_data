@@ -41,7 +41,7 @@ class DesignData(object):
             key, value) in self.staple_domains_melt_t.items()}
 
         # crossover
-        self.all_co_sets, self.all_co_lists = self._get_all_co()
+        self.all_co_sets, self.all_co_lists = self._get_all_connections()
         self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
         self.end_co_sets = list()
         self.end_co_tuples = self._get_endloop()
@@ -94,7 +94,7 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf)                             : base for base in strand.tour})
 
         return hps_base
 
@@ -440,8 +440,8 @@ class DesignData(object):
                     data['full_scaf_co_type_3'] += 1
         return data
 
-    def _get_all_co(self) -> list:
-        """[get a list of crossovers but not as objects but as a tuple of the two bases connected via a crossover]
+    def _get_all_connections(self) -> list:
+        """[get a list of connections but not as objects but as a tuple of the two bases connected via a crossover]
 
         Returns:
             list -- [list of all crossovers]
@@ -812,15 +812,14 @@ class DesignData(object):
         return possible_crossovers, co_density
 
     def get_blunt_ends(self):
-        blunt_ends = set()
-        # NOTE: use crossoverobject
-        for co_tuple in self.end_co_tuples:
-            co = co_tuple[0]
-            if co[0].is_scaf:
-                if (co[0].across is True) and (co[1].across is True):
-                    for base in co:
-                        if (base.across in self.first_bases) or (base.across in self.last_bases):
-                            blunt_ends.add(co)
+
+        for end in self.endloops:
+            has_across = (end.bases[0][0].across is True) and (
+                end.bases[0][1].across is True)
+            if end.strand_typ == 'scaffold' and has_across:
+                blunt_ends = {end.bases[0] for base in end.bases[0] if (
+                    base.across in self.first_bases) or (base.across in self.last_bases)}
+
         return blunt_ends
 
     def get_loops(self):

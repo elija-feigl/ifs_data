@@ -19,7 +19,7 @@ class Compute(object):
         data["stacks_length"] = designdata.stacks_lengths
         data["loops_length"] = designdata.loops_length_list
         data.update(designdata.get_insertion_deletion_density())
-        data["n_bluntends"] = len(designdata.get_blunt_ends())
+        data["n_bluntends"] = len(designdata.blunt_ends)
 
         # staple stats
         data["n_staples"] = len(designdata.staples)
