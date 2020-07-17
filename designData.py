@@ -16,19 +16,15 @@ class DesignData(object):
         self.json: str = json
         self.name: str = name
         self.seq: str = seq
+        self.data = dict()
         self.dna_structure, self.dna_structure_skips = self.init_design()
         self.strands: list = self.dna_structure.strands
         self.scaf_bases: list = self.get_all_scaf_bases()
         self.get_all_staple()
-        self.num_staple_helix_dict = dict()
-        self.staple_helix_dict: dict = self.init_helix_dict()
+        self._init_helix_data()
         self.hps_base = self._init_hps()
         self.hps_base_skips = self._init_hps_skips()
-        self.data: dict = {}
-        self.domain_data: dict = {}
-        self.domain_lengths_data = dict()
-        self.n_staples_domains = dict()
-        self.get_staple_domain_data()
+        self._init_domain_data()
         self.long_domains = self.get_staples_with_long_domains()
         self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
         self.helices = self.dna_structure.structure_helices_map
@@ -36,8 +32,8 @@ class DesignData(object):
         self.max_staple_melt_t = {key: max(value) for (
             key, value) in self.staple_domains_melt_t.items()}
         self.alpha_value = self.alpha_value()
-        # crossover
 
+        # crossover
         self.all_co_sets, self.all_co_lists = self._get_all_co()
         self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
         self.end_co_sets = list()
@@ -86,7 +82,8 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf)
+                            : base for base in strand.tour})
 
         return hps_base
 
@@ -187,7 +184,7 @@ class DesignData(object):
 
         return staples_length
 
-    def get_staple_domain_data(self) -> dict:
+    def _init_domain_data(self) -> dict:
         """[creates a three dictionary of staples and their domains informations]
 
         Returns:
@@ -195,6 +192,9 @@ class DesignData(object):
             dict -- domain_lengths_data:  [dictionary of staples and list of their domains lengths]
             dict -- n_staples_domains:  [dictionary of staples and number of their domains]
         """
+        self.domain_data = dict()
+        self.domain_lengths_data = dict()
+        self.n_staples_domains = dict()
 
         self.domain_data.update(
             {staple: staple.domain_list for staple in self.staples})
@@ -297,30 +297,17 @@ class DesignData(object):
 
         return data
 
-    def init_helix_dict(self) -> dict:
+    def _init_helix_data(self) -> dict:
         """
         [creates a dict with staple ID as key and the number of helices that it passes through as values]
         """
-        staple_helix_dict = {}
-        num_staple_helix_dict = {}
-        helices_list = list()
-        helices_length_list = list()
-        for strand in self.staples:
-            helices = set()
-            helices.add(strand.tour[0].h)
-            for base in strand.tour:
-                if self.dna_structure._check_base_crossover(base):
-                    if base.h not in helices:
-                        helices.add(base.h)
-            helices_length_list.append(len(helices))
-            helices_list.append(helices)
-
-            if not strand.is_scaffold:
-                staple_helix_dict.update({strand: helices_list[-1]})
-                num_staple_helix_dict.update({strand: len(helices_list[-1])})
-        self.num_staple_helix_dict = num_staple_helix_dict
-
-        return staple_helix_dict
+        self.staple_helix_dict = dict()
+        self.num_staple_helix_dict = dict()
+        for staple in self.staples:
+            self.staple_helix_dict.update(
+                {staple: tuple({base.h for base in staple.tour})})
+            self.num_staple_helix_dict.update(
+                {staple: len(tuple({base.h for base in staple.tour}))})
 
     def _get_first_last_bases_of_strands(self) -> list:
         first_bases = set()
