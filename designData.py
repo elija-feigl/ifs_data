@@ -316,17 +316,14 @@ class DesignData(object):
                 staple_helix_dict: [staple: helices ID the staple passes through],
                 num_staple_helix_dict: [staple: number of helices the staple passes through],
         """
+
         self.staple_helix_dict = dict()
         self.num_staple_helix_dict = dict()
 
-        # self.staple_helix_dict = {staple:tuple({base.h for base in staple.tour}) for staple in self.staples}
-        # self.staple_helix_dict = {staple:len(self.staple_helix_dict[staple]) for staple in self.staples}
-
         for staple in self.staples:
-            self.staple_helix_dict.update(
-                {staple: tuple({base.h for base in staple.tour})})
-            self.num_staple_helix_dict.update(
-                {staple: len(self.staple_helix_dict[staple])})
+            helix_ids = {base.h for base in staple.tour}
+            self.staple_helix_dict[staple] = helix_ids
+            self.num_staple_helix_dict[staple] = len(helix_ids)
 
     def _get_first_last_bases_of_strands(self) -> list:
 
