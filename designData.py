@@ -42,11 +42,12 @@ class DesignData(object):
             key, value) in self.staple_domains_melt_t.items()}
 
         # crossover
-        self.all_co_sets, self.all_co_lists = self._get_all_connections()
-        self.full_co_sets_seperate, self.full_co_tuples = self._get_full_co_list()
-        self.end_co_sets = list()
-        self.end_co_tuples = self._get_endloop()
-        self.half_co_tuples = self._get_half_co()
+        self._all_co_sets = self._get_all_connections()
+        self._full_co_sets_seperate, self._full_co_tuples = self._get_full_co_list()
+        self._end_co_sets = list()
+        self._end_co_tuples = self._get_endloop()
+        self._half_co_tuples = self._get_half_co()
+
         self.all_crossovers = list()
         self.full_crossovers = list()
         self.half_crossovers = list()
@@ -95,8 +96,8 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf)
-                            : base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf):
+                             base for base in strand.tour})
 
         return hps_base
 
@@ -353,9 +354,9 @@ class DesignData(object):
         """
 
         crossovers_dict = {
-            "full": self.full_co_tuples,
-            "half": self.half_co_tuples,
-            "end": self.end_co_tuples
+            "full": self._full_co_tuples,
+            "half": self._half_co_tuples,
+            "end": self._end_co_tuples
         }
 
         def create_list(typ, list_name, all_crossovers, co_list):
@@ -441,18 +442,17 @@ class DesignData(object):
             list -- [list of all crossovers]
         """
         all_co_tuples = set()
-        all_co_lists = list()
-        all_co_sets = list()
+
+        # NOTE: closing the scaffold
         for strand in self.strands:
             if strand.is_scaffold:
-
-                new_strand = self._close_strand(strand)
-                self.strands[strand.id] = new_strand
+                self.strands[strand.id] = self._close_strand(strand)
 
         for strand in self.strands:
             for base in strand.tour:
                 if self.dna_structure._check_base_crossover(base):
                     co_tuple = set()
+
                     if base.up.h != base.h:
                         co_tuple = (base, base.up)
                         all_co_tuples.add(tuple(set(co_tuple)))
@@ -460,11 +460,7 @@ class DesignData(object):
                         co_tuple = (base.down, base)
                         all_co_tuples.add(tuple(set(co_tuple)))
 
-        for co in all_co_tuples:
-            all_co_sets.append(set(co))
-            all_co_lists.append(co)
-
-        return all_co_sets, all_co_lists
+        return [set(co) for co in all_co_tuples]
 
     def _get_full_co_list(self) -> list:
         """[gets the full crossovers as tuples of bases]
@@ -472,81 +468,61 @@ class DesignData(object):
         Returns:
 
             list -- [
-                fulfull_packed_co.extend(self.full_co_tuples: get full co as a pack of two crossover
+                _full_co_tuples: get full co as a pack of two connections
                 (representation: [Co[B,B],Co[B,B], all in lists)
-                full_co_list_seperate: also seperately as individual crossovers
+                _full_co_list_seperate: seperately as individual connections
                 (every Co in frozenset of two bases)
                     ]
         """
+        full_co_sets_seperate = list()
+        full_co_tuples = list()
 
         full_co_list = list()
-        # lista = list()
-        for co in self.all_co_sets:
+
+        for co in self._all_co_sets:
             co_neighbours = dict()
-            co_tuple_plus = set()
-            co_tuple_minus = set()
 
-            for base in co:
-                base_plus, base_minus = self.get_base_plus_minus(base)
-                co_tuple_plus.add(base_plus)
-                co_tuple_minus.add(base_minus)
+            co_neighbours["plus"] = {
+                self.get_base_plus_minus(base)[0] for base in co}
+            co_neighbours["minus"] = {
+                self.get_base_plus_minus(base)[1] for base in co}
 
-            co_neighbours["plus"] = set(co_tuple_plus)
-            co_neighbours["minus"] = set(co_tuple_minus)
-
-            fullco = set()
-            for typ in ["plus", "minus"]:
-                if co_neighbours[typ] in self.all_co_sets:
-                    fullco.add(frozenset(co))
-                    fullco.add(frozenset(co_neighbours[typ]))
-                    full_co_list.append(frozenset(fullco))
-
-                co_neighbours[typ] = list()
+            full_co_list.extend([frozenset([frozenset(co_neighbours[typ]), frozenset(co)]) for typ in [
+                "plus", "minus"] if co_neighbours[typ] in self._all_co_sets])
 
         """
         putting all full_co in a list configuration as [(Co(B,B),Co(B,B))]
         two parallel Co in a tuple and two bases also in a tuple
         """
         full_co_set = set(full_co_list)
-        full_co_sets_seperate = list()
-        full_co_tuples = list()
-
         for full_set in full_co_set:
-            full = []
-            for co in full_set:
-                full.append(tuple(co))
-            full_co_tuples.append(tuple(full))
-            for co in full_set:
-                full_co_sets_seperate.append(co)
+
+            full_co_tuples.append(tuple([tuple(co) for co in full_set]))
+            full_co_sets_seperate.extend([co for co in full_set])
 
         return full_co_sets_seperate, full_co_tuples
 
     def _get_endloop(self) -> list:
-        for co in self.all_co_sets:
+        # NOTE: we want to ensure bases has consistent type regardless of type
+
+        for co in self._all_co_sets:
             for base in co:
                 base_plus, base_minus = self.get_base_plus_minus(base)
 
-                if (base_plus is None) or (base_minus is None):
-                    if co not in self.end_co_sets:
-                        self.end_co_sets.append(frozenset(co))
+                is_none = (base_plus is None) or (base_minus is None)
+                if (is_none) and (co not in self._end_co_sets):
+                    self._end_co_sets.append(frozenset(co))
 
-        end_tuples = list()
-        for end in self.end_co_sets:
-            # NOTE: we want to ensure bases has consistent type regardless of type
-            end_tuples.append(tuple([tuple(end), None]))
-
-        return end_tuples
+        return [tuple([tuple(end), None]) for end in self._end_co_sets]
 
     def _get_half_co(self) -> list:
-        half_co_sets = list()
-        half_co_tuples = list()
-        for co in self.all_co_sets:
-            if (co not in self.end_co_sets) and (co not in self.full_co_sets_seperate):
-                half_co_sets.append(co)
+        # NOTE: we want to ensure bases has consistent type regardless of type
 
-        for co in half_co_sets:
-            # NOTE: we want to ensure bases has consistent type regardless of type
-            half_co_tuples.append(tuple([tuple(co), None]))
+        def condition(self, co):
+            return (co not in self._end_co_sets) and (co not in self._full_co_sets_seperate)
+
+        half_co_sets = [co for co in self._all_co_sets if condition(self, co)]
+        half_co_tuples = [tuple([tuple(co), None]) for co in half_co_sets]
 
         return half_co_tuples
 
@@ -612,7 +588,7 @@ class DesignData(object):
         full_packed_co = list()
         same_pos = list()
         dummy = list()
-        full_packed_co.extend(self.full_co_tuples)
+        full_packed_co.extend(self._full_co_tuples)
         for f in full_packed_co:
             added.append(False)
 
