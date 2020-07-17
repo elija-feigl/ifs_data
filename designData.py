@@ -13,25 +13,32 @@ from statistics import mean
 class DesignData(object):
 
     def __init__(self, json: str, name: str, seq: str):
+
         self.json: str = json
         self.name: str = name
         self.seq: str = seq
         self.data = dict()
         self.dna_structure, self.dna_structure_skips = self.init_design()
+
+        # strand, base
         self.strands: list = self.dna_structure.strands
-        self.scaf_bases: list = self.get_all_scaf_bases()
         self.get_all_staple()
-        self._init_helix_data()
+        self.scaf_bases: list = self.get_all_scaf_bases()
         self.hps_base = self._init_hps()
         self.hps_base_skips = self._init_hps_skips()
+        self._get_first_last_bases_of_strands()
+
+        # helix
+        self.helices = self.dna_structure.structure_helices_map
+        self._init_helix_data()
+
+        # domain
         self._init_domain_data()
         self.long_domains = self.get_staples_with_long_domains()
         self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
-        self.helices = self.dna_structure.structure_helices_map
         # NOTE: dictionary of staples and maximum melting temp of domains for each staple
         self.max_staple_melt_t = {key: max(value) for (
             key, value) in self.staple_domains_melt_t.items()}
-        self.alpha_value = self.alpha_value()
 
         # crossover
         self.all_co_sets, self.all_co_lists = self._get_all_co()
@@ -40,12 +47,13 @@ class DesignData(object):
         self.end_co_tuples = self._get_endloop()
         self.half_co_tuples = self._get_half_co()
         self.all_crossovers, self.full_crossovers, self.half_crossovers, self.endloops = self.create_crossover_lists()
+        self.pos = self.full_scaff_type()
 
+        # structure
+        self.alpha_value = self.alpha_value()
         self.stacks = self.get_stacks()
         self.stacks_lengths = self.get_stacks_lengths()
-        self.pos = self.full_scaff_type()
         self.loops_length_list = self.get_loops()
-        self._get_first_last_bases_of_strands()
         self.nicks: list = self.get_nicks()
         self.blunt_ends = self.get_blunt_ends()
 
