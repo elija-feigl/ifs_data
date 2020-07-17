@@ -23,10 +23,11 @@ class DesignData(object):
         # strand, base
         self.strands: list = self.dna_structure.strands
         self._get_staple()
-        self.scaf_bases: list = self.get_all_scaf_bases()
+        self.get_all_scaf_bases()
         self.hps_base = self._init_hps()
         self.hps_base_skips = self._init_hps_skips()
         self._get_first_last_bases_of_strands()
+        self.get_staples_length()
 
         # helix
         self.helices = self.dna_structure.structure_helices_map
@@ -152,7 +153,7 @@ class DesignData(object):
             return "Honeycomb"
 
     def get_dimension(self):
-        """[getting the dimension of the structure.]
+        """[gets the dimension of the structure.]
 
         Returns:
             [tuple]: [
@@ -171,18 +172,14 @@ class DesignData(object):
         b = max(lattice_rows) - min(lattice_rows) + 1
         c = max(base_pos) - min(base_pos) + 1
 
-        dimension = (a, b, c)
-
-        return dimension
+        return (a, b, c)
 
     def get_all_scaf_bases(self) -> list:
 
-        all_scaf_bases = list()
+        self.scaf_bases = list()
         for strand in self.strands:
-            all_scaf_bases.extend(
+            self.scaf_bases.extend(
                 [base for base in strand.tour if strand.is_scaffold])
-
-        return all_scaf_bases
 
     def get_staples_length(self) -> list:
         """[creates a list of staples length]
@@ -190,11 +187,8 @@ class DesignData(object):
         Returns:
             list: [staples length]
         """
-        staples_length = list()
-        for staple in self.staples:
-            staples_length.append(len([base for base in staple.tour]))
-
-        return staples_length
+        self.staples_length = [len([base for base in staple.tour])
+                               for staple in self.staples]
 
     def _init_domain_data(self) -> dict:
         """[creates a three dictionary of staples and their domains informations]
@@ -267,10 +261,10 @@ class DesignData(object):
         Returns:
             dict -- [staples : numbers of long_domains for the each staple]
         """
-        return {staple: len(list(filter(lambda x: x > 14, domain_length))) for staple, domain_length in self.domain_lengths_data.items()}
+        return {staple: len(list(filter(lambda x: x >= 14, domain_length)))
+                for staple, domain_length in self.domain_lengths_data.items()}
 
     def divide_domain_lengths(self) -> dict:
-        # TODO: the designprocess data are not consistant in the old and new version
         """[divide staples having 0, 1, 2 or more long domains ]
 
         Returns:
@@ -300,8 +294,6 @@ class DesignData(object):
         for staple, domains in self.domain_data.items():
             domain_unpaired.extend([
                 domain for domain in domains if domain.base_list[0].across is None])
-
-        for staple, domains in self.domain_data.items():
             data["co_rule_violation"].extend(
                 [domain for domain in domains if domain not in domain_unpaired and len(domain.base_list) < 5])
 
@@ -426,6 +418,7 @@ class DesignData(object):
                 full.scaff_full_type = typ
 
     def get_all_full_scaff_crossover_types(self):
+        # TODO: the designprocess data are not consistant
         data = {
             'full_scaf_co_type_1': 0,
             'full_scaf_co_type_2': 0,
@@ -605,6 +598,7 @@ class DesignData(object):
         return data
 
     def get_stacks(self):
+        # TODO: the designprocess data are not consistant
         """[get the list of all stacks in the structure]
 
         return  [stacks: a list of stacks]

@@ -23,7 +23,7 @@ class Compute(object):
 
         # staple stats
         data["n_staples"] = len(designdata.staples)
-        data["staples_length"] = designdata.get_staples_length()
+        data["staples_length"] = designdata.staples_length
         data["helices_staples_pass"] = list(
             designdata.num_staple_helix_dict.values())
 
