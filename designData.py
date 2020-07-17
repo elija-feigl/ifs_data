@@ -90,7 +90,7 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf)                             : base for base in strand.tour})
 
         return hps_base
 
@@ -326,24 +326,22 @@ class DesignData(object):
         self.last_bases = {staple.tour[-1] for staple in self.staples}
 
     def get_nicks(self) -> int:
+        # order of nick is always (first,last)
         nicks = list()
+
+        def create_nick(base, neighbor_base):
+            bases = (base, neighbor_base)
+            p = (base.p, neighbor_base.p)
+            h = (base.h, neighbor_base.h)
+            nick = Nick(bases, set(p), set(h))
+            return nick
+
         for base in self.first_bases:
             base_plus, base_minus = self.get_base_plus_minus(base)
-
             if base_plus in self.last_bases:
-                # order of nick is always (first,last)
-                bases = (base, base_plus)
-                p = (base.p, base_plus.p)
-                h = (base.h, base_plus.h)
-                nick = Nick(bases, set(p), set(h))
-                nicks.append(nick)
-
-            elif base_minus in self.last_bases:
-                bases = (base, base_minus)
-                p = (base.p, base_minus.p)
-                h = (base.h, base_minus.h)
-                nick = Nick(bases, set(p), set(h))
-                nicks.append(nick)
+                nicks.append(create_nick(base, base_plus))
+            if base_minus in self.last_bases:
+                nicks.append(create_nick(base, base_minus))
 
         return nicks
 
