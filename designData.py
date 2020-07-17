@@ -90,7 +90,7 @@ class DesignData(object):
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf)                             : base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
 
         return hps_base
 
@@ -324,12 +324,6 @@ class DesignData(object):
 
         self.first_bases = {staple.tour[0] for staple in self.staples}
         self.last_bases = {staple.tour[-1] for staple in self.staples}
-
-    def first_last_strand_base(self, staple):
-        first_bases = staple.tour[0]
-        last_bases = staple.tour[-1]
-
-        return first_bases, last_bases
 
     def get_nicks(self) -> int:
         nicks = list()
