@@ -129,7 +129,7 @@ class DesignData(object):
         return self.hps_base.get((h, p, is_scaffold), None)
 
     def get_base_plus_minus(self, base):
-        """[given a base, it returns a neighbour base]
+        """[given a base, it returns the neighbour bases]
 
         Returns:
             [base_plus] -- [base with one position up along the helix]
@@ -283,9 +283,8 @@ class DesignData(object):
                 co_rule_violation: unpaired domains with less than 5 bases]
         """
 
-        domain_unpaired = list()
-
         data = dict()
+        domain_unpaired = list()
 
         for staple, n_longs in self.long_domains.items():
             if n_longs >= 2:
@@ -307,7 +306,12 @@ class DesignData(object):
 
     def _init_helix_data(self) -> dict:
         """
-        [creates a dict with staple ID as key and the number of helices that it passes through as values]
+        [creates a two dictionary with staple and helices that it passes through]
+
+        Returns:
+            dict: [
+                staple_helix_dict: [staple: helices ID the staple passes through],
+                num_staple_helix_dict: [staple: number of helices the staple passes through],
         """
         self.staple_helix_dict = dict()
         self.num_staple_helix_dict = dict()
