@@ -23,9 +23,9 @@ class DesignData(object):
         # strand, base
         self.strands: list = self.dna_structure.strands
         self._get_staple()
+        self._init_hps()
+        self._init_hps_skips()
         self.get_all_scaf_bases()
-        self.hps_base = self._init_hps()
-        self.hps_base_skips = self._init_hps_skips()
         self._get_first_last_bases_of_strands()
         self.get_staples_length()
 
@@ -94,12 +94,10 @@ class DesignData(object):
         Returns:
             dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
         """
-        hps_base = dict()
+        self.hps_base = dict()
         for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf):
-                             base for base in strand.tour})
-
-        return hps_base
+            self.hps_base.update({(base.h, base.p, base.is_scaf):
+                                  base for base in strand.tour})
 
     def _init_hps_skips(self) -> dict:
         """[create a dictionary of bases positions and the bases itself for all bases in the structure including the skips]
@@ -107,12 +105,10 @@ class DesignData(object):
         Returns:
             dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
         """
-        hps_base_skips = dict()
+        self.hps_base_skips = dict()
         for strand in self.dna_structure_skips.strands:
-            hps_base_skips.update(
+            self.hps_base_skips.update(
                 {(base.h, base.p, base.is_scaf): base for base in strand.tour})
-
-        return hps_base_skips
 
     def _get_base_from_hps(self, h, p, is_scaffold, dir=1):
         """[get the base object from its coordination: (h, p is_scaffold)]
