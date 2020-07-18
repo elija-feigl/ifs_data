@@ -24,15 +24,13 @@ class Compute(object):
         # staple stats
         data["n_staples"] = len(designdata.staples)
         data["staples_length"] = designdata.staples_length
-        data["helices_staples_pass"] = list(
-            designdata.num_staple_helix_dict.values())
+        data["helices_staples_pass"] = list(designdata.num_staple_helix_dict.values())
 
         # domains
         data["n_staples_domains"] = list(designdata.n_staples_domains.values())
         data["long_domains"] = list(designdata.long_domains.values())
         data.update(designdata.divide_domain_lengths())
-        data["staple_domain_melt_T"] = list(
-            designdata.max_staple_melt_t.values())
+        data["staple_domain_melt_T"] = list(designdata.max_staple_melt_t.values())
 
         # crossovers
         data["co_set"] = designdata.classify_crossovers()
@@ -50,8 +48,7 @@ class Compute(object):
                         if (strand_name == 'scaffold') and (typ in ['half', 'half_v', 'half_h']):
                             pass
                         else:
-                            export["{}_{}_{}".format(
-                                name, strand_name, typ)] = n_co
+                            export["{}_{}_{}".format(name, strand_name, typ)] = n_co
 
             elif name in ["staples_length", "helices_staples_pass", "n_staples_domains",
                           "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length"]:
@@ -73,9 +70,7 @@ class Compute(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-i", "--input",
                         help="input file",
                         type=str,
