@@ -11,20 +11,20 @@ class Compute(object):
         data["name"] = designdata.name
         data["lattice_type"] = designdata.get_lattice_type()
         data["dim_x"], data["dim_y"], data["dim_z"] = designdata.get_dimension()
-        data['alpha_value'] = designdata.alpha_value
+        data['alpha_value'] = designdata.get_alpha_value()
         data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
         data["n_skips"] = len(designdata.dna_structure.Dhp_skips)
-        data["n_nicks"] = len(designdata.nicks)
+        data["n_nicks"] = len(designdata.get_nicks())
         data["n_stacks"] = len(designdata.stacks)
-        data["stacks_length"] = designdata.stacks_lengths
-        data["loops_length"] = designdata.loops_length_list
+        data["stacks_length"] = designdata.get_stacks_lengths()
+        data["loops_length"] = designdata.get_loops()
         data.update(designdata.get_insertion_deletion_density())
-        data["n_bluntends"] = len(designdata.blunt_ends)
+        data["n_bluntends"] = len(designdata.get_blunt_ends())
 
         # staple stats
         data["n_staples"] = len(designdata.staples)
-        data["staples_length"] = designdata.staples_length
-        data["helices_staples_pass"] = list(designdata.num_staple_helix_dict.values())
+        data["staples_length"] = designdata.get_staples_length()
+        data["helices_staples_pass"] = designdata.get_num_staple_helix()
 
         # domains
         data["n_staples_domains"] = list(designdata.n_staples_domains.values())

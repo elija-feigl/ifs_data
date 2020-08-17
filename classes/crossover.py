@@ -23,7 +23,6 @@ class Crossover(object):
         """
         self.typ: str = typ
         self.scaff_full_type: Optional[int] = None
-
         self.create_crossover(con_tuple, helices)
 
     def create_crossover(self, con_tuple, helices):

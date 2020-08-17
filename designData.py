@@ -14,24 +14,18 @@ class DesignData(object):
 
     def __init__(self, json: str, name: str, seq: str):
 
-        self.json: str = json
         self.name: str = name
-        self.seq: str = seq
-        self.data = dict()
-        self.dna_structure, self.dna_structure_skips = self.init_design()
+        self.dna_structure, self.dna_structure_skips = self.init_design(json, seq)
 
         # strand, base
         self.strands: list = self.dna_structure.strands
-        self._get_staple()
-        self._init_hps()
-        self._init_hps_skips()
-        self.get_all_scaf_bases()
-        self._get_first_last_bases_of_strands()
-        self.get_staples_length()
+        self.staples = self._get_staple()
+        self.hps_base, self.hps_base_skips = self._init_hps(), self._init_hps_skips()
+        self.scaf_bases = self._get_all_scaf_bases()
 
         # helix
         self.helices = self.dna_structure.structure_helices_map
-        self._init_helix_data()
+        self.staple_helix_dict = self._get_helix_data()
 
         # domain
         self._init_domain_data()
@@ -42,27 +36,19 @@ class DesignData(object):
 
         # crossover
         self._all_co_sets = self._get_all_connections()
-        # self._full_co_sets_seperate, self._full_co_tuples =
-        self._get_full_co_list()
-        self._end_co_tuples = self._get_endloop()
-        self._half_co_tuples = self._get_half_co()
-        self._create_crossover_lists()
-        self.pos = self.full_scaff_type()
-
-        # structure
-        self.alpha_value = self.alpha_value()
+        self.full_crossovers = self._create_full_crossover_list()
+        self.endloops = self._create_endloops_list()
+        self.half_crossovers = self._create_half_crossover_list()
+        self.all_crossovers = self._create_all_crossover_list()
+        self.full_scaff_position()
         self.stacks = self.get_stacks()
-        self.stacks_lengths = self.get_stacks_lengths()
-        self.loops_length_list = self.get_loops()
-        self.nicks: list = self.get_nicks()
-        self.blunt_ends = self.get_blunt_ends()
 
-    def init_design(self):
+    def init_design(self, json, seq):
         converter = nd.converters.Converter(modify=True, logg=False)
-        converter.read_cadnano_file(self.json, None, self.seq)
+        converter.read_cadnano_file(json, None, seq)
         converter.dna_structure.compute_aux_data()
         converter_skip = nd.converters.Converter(modify=False, logg=False)
-        converter_skip.read_cadnano_file(self.json, None, self.seq)
+        converter_skip.read_cadnano_file(json, None, seq)
         converter_skip.dna_structure.compute_aux_data()
         return converter.dna_structure, converter_skip.dna_structure
 
@@ -80,7 +66,7 @@ class DesignData(object):
         return strand
 
     def _get_staple(self) -> list:
-        self.staples = [strand for strand in self.strands if not strand.is_scaffold]
+        return [strand for strand in self.strands if not strand.is_scaffold]
 
     def _init_hps(self) -> dict:
         """[create a dictionary of bases positions and the bases itself for all bases in the structure excluding the skips]
@@ -88,9 +74,10 @@ class DesignData(object):
         Returns:
             dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
         """
-        self.hps_base = dict()
+        hps_base = dict()
         for strand in self.dna_structure.strands:
-            self.hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+        return hps_base
 
     def _init_hps_skips(self) -> dict:
         """[create a dictionary of bases positions and the bases itself for all bases in the structure including the skips]
@@ -98,9 +85,10 @@ class DesignData(object):
         Returns:
             dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
         """
-        self.hps_base_skips = dict()
+        hps_base_skips = dict()
         for strand in self.dna_structure_skips.strands:
-            self.hps_base_skips.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base_skips.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+        return hps_base_skips
 
     def _get_base_from_hps(self, h, p, is_scaffold, dir=1):
         """[get the base object from its coordination: (h, p is_scaffold)]
@@ -134,6 +122,20 @@ class DesignData(object):
 
         return base_plus, base_minus
 
+    def _get_first_last_bases_of_strands(self):
+        """
+        Returns:
+            [set]: [
+                firstbases: a set of first bases of all the staples
+                lastbases: a set of last bases of all the staples
+                ]
+        """
+
+        first_bases = {staple.tour[0] for staple in self.staples}
+        last_bases = {staple.tour[-1] for staple in self.staples}
+
+        return first_bases, last_bases
+
     def get_lattice_type(self):
         if type(self.dna_structure.lattice) == nd.data.lattice.SquareLattice:
             return "Square"
@@ -162,11 +164,8 @@ class DesignData(object):
 
         return (a, b, c)
 
-    def get_all_scaf_bases(self) -> list:
-
-        self.scaf_bases = list()
-        for strand in self.strands:
-            self.scaf_bases.extend([base for base in strand.tour if strand.is_scaffold])
+    def _get_all_scaf_bases(self) -> list:
+        return [base for strand in self.strands for base in strand.tour if strand.is_scaffold]
 
     def get_staples_length(self) -> list:
         """[creates a list of staples length]
@@ -174,7 +173,7 @@ class DesignData(object):
         Returns:
             list: [staples length]
         """
-        self.staples_length = [len([base for base in staple.tour]) for staple in self.staples]
+        return [len([base for base in staple.tour]) for staple in self.staples]
 
     def _init_domain_data(self) -> dict:
         """[creates a three dictionary of staples and their domains informations]
@@ -212,7 +211,7 @@ class DesignData(object):
 
         return staple_domains_melt_t
 
-    def alpha_value(self):
+    def get_alpha_value(self):
         """[alpha value : The ratio of number of staples having doamins with melting
         temperature higher than critical temperature to the number of all staples in the structure]
 
@@ -233,7 +232,7 @@ class DesignData(object):
         return alpha_values
 
     def get_staples_with_long_domains(self) -> dict:
-        """[long domain are domains with 14 and more bases]
+        """[long domain are domains with 14 or more bases]
 
         Returns:
             dict -- [staples : numbers of long_domains for the each staple]
@@ -270,30 +269,22 @@ class DesignData(object):
 
         return data
 
-    def _init_helix_data(self) -> dict:
+    def _get_helix_data(self) -> dict:
         """
         [creates a two dictionary with staple and helices that it passes through]
 
         Returns:
             dict: [
                 staple_helix_dict: [staple: helices ID the staple passes through],
-                num_staple_helix_dict: [staple: number of helices the staple passes through],
+
         """
+        return {staple: {base.h for base in staple.tour} for staple in self.staples}
 
-        self.staple_helix_dict = dict()
-        self.num_staple_helix_dict = dict()
-
-        for staple in self.staples:
-            helix_ids = {base.h for base in staple.tour}
-            self.staple_helix_dict[staple] = helix_ids
-            self.num_staple_helix_dict[staple] = len(helix_ids)
-
-    def _get_first_last_bases_of_strands(self) -> list:
-        self.first_bases = {staple.tour[0] for staple in self.staples}
-        self.last_bases = {staple.tour[-1] for staple in self.staples}
+    def get_num_staple_helix(self):
+        return [len(helix_ids) for helix_ids in self.staple_helix_dict.values()]
 
     def get_nicks(self) -> int:
-        # order of nick is always (first,last)
+        # order of nick is always (first base,last base)
         nicks = list()
 
         def create_nick(base, neighbor_base):
@@ -303,31 +294,34 @@ class DesignData(object):
             nick = Nick(bases, set(p), set(h))
             return nick
 
-        for base in self.first_bases:
+        first_bases, last_bases = self._get_first_last_bases_of_strands()
+        for base in first_bases:
             base_plus, base_minus = self.get_base_plus_minus(base)
-            if base_plus in self.last_bases:
+            if base_plus in last_bases:
                 nicks.append(create_nick(base, base_plus))
-            if base_minus in self.last_bases:
+            if base_minus in last_bases:
                 nicks.append(create_nick(base, base_minus))
 
         return nicks
 
-    def _create_crossover_lists(self):
-        """[this method creates crossover objects in the dna origami structure]
+    def _create_full_crossover_list(self):
+        self._get_full_co_list()
+        return [Crossover('full', co, self.helices) for co in self._full_co_tuples]
 
-        Returns:
-            [all_crossovers]    -- [list of all crossover object]
-            [full_crossovers]   -- [list of all full crossover object]
-            [half_crossovers]   -- [list of all half crossover object]
-            [endloops]          -- [list of all endloop object]
-        """
-        self.full_crossovers = [Crossover('full', co, self.helices) for co in self._full_co_tuples]
-        self.endloops = [Crossover('end', co, self.helices)for co in self._end_co_tuples]
-        self.half_crossovers = [Crossover('half', co, self.helices) for co in self._half_co_tuples]
-        self.all_crossovers = self.half_crossovers + self.endloops + self.full_crossovers
+    def _create_half_crossover_list(self):
+        half_co_tuples = self._get_half_co()
+        return [Crossover('half', co, self.helices) for co in half_co_tuples]
 
-    def full_scaff_type(self):
-        """[type of the full scaffold crossover depending on the position suggested by cadnano]
+    def _create_endloops_list(self):
+        end_co_tuples = self._get_endloop()
+        return [Crossover('end', co, self.helices)for co in end_co_tuples]
+
+    def _create_all_crossover_list(self):
+        return self.half_crossovers + self.endloops + self.full_crossovers
+
+    def full_scaff_position(self):
+        """[assign type to full crossover: position of the full scaffold crossover depending on
+        the position suggested by cadnano]
         """
         for full in self.full_crossovers:
             if full.strand_typ == 'scaffold':
@@ -345,7 +339,7 @@ class DesignData(object):
 
                 if sub_new is np.Infinity:
                     full.scaff_full_type = 0
-                    return
+                    continue
 
                 # calculate type
                 if self.get_lattice_type() == 'Square':
@@ -357,15 +351,15 @@ class DesignData(object):
                         typ = 3
                     else:
                         typ = 2
-
+                    full.scaff_full_type = typ
                 else:
                     mod = sub_new % 21
                     if 0 <= mod <= 11:
                         typ = 1
                     elif 11 < mod < 21:
                         typ = 3
-
-                full.scaff_full_type = typ
+                    full.scaff_full_type = typ
+                # full.scaff_full_type = typ
 
     def get_all_full_scaff_crossover_types(self):
         # TODO: the designprocess data are not consistant
@@ -623,10 +617,7 @@ class DesignData(object):
         return stacks
 
     def get_stacks_lengths(self):
-        stacks_lengths = list()
-        for stack in self.stacks:
-            stacks_lengths.append(len(stack))
-        return stacks_lengths
+        return [len(stack) for stack in self.stacks]
 
     def get_co_density(self):
         """[calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)]
@@ -731,12 +722,14 @@ class DesignData(object):
 
     def get_blunt_ends(self):
         blunt_ends = set()
+        first_bases, last_bases = self._get_first_last_bases_of_strands()
+
         for end in self.endloops:
             has_across = (end.bases[0][0].across is True) and (
                 end.bases[0][1].across is True)
             if end.strand_typ == 'scaffold' and has_across:
                 blunt_ends = {end.bases[0] for base in end.bases[0] if (
-                    base.across in self.first_bases) or (base.across in self.last_bases)}
+                    base.across in first_bases) or (base.across in last_bases)}
 
         return blunt_ends
 
