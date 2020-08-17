@@ -1,7 +1,7 @@
 from designData import DesignData
 import argparse
 from pathlib import Path
-from utils import get_statistics
+from utils import get_statistics, get_full_scaff_co_typ_stat
 
 
 class Compute(object):
@@ -34,7 +34,7 @@ class Compute(object):
 
         # crossovers
         data["co_set"] = designdata.classify_crossovers()
-        data.update(designdata.get_all_full_scaff_crossover_types())
+        data.update(get_full_scaff_co_typ_stat(designdata))
         data["co_possible"], data["co_density"] = designdata.get_co_density()
 
         designdata.data = data

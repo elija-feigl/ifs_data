@@ -351,32 +351,15 @@ class DesignData(object):
                         typ = 3
                     else:
                         typ = 2
-                    full.scaff_full_type = typ
+
                 else:
                     mod = sub_new % 21
                     if 0 <= mod <= 11:
                         typ = 1
                     elif 11 < mod < 21:
                         typ = 3
-                    full.scaff_full_type = typ
-                # full.scaff_full_type = typ
 
-    def get_all_full_scaff_crossover_types(self):
-        # TODO: the designprocess data are not consistant
-        data = {
-            'full_scaf_co_type_1': 0,
-            'full_scaf_co_type_2': 0,
-            'full_scaf_co_type_3': 0
-        }
-        for full in self.full_crossovers:
-            if full.strand_typ == 'scaffold':
-                if full.scaff_full_type == 1:
-                    data['full_scaf_co_type_1'] += 1
-                elif full.scaff_full_type == 2:
-                    data['full_scaf_co_type_2'] += 1
-                elif full.scaff_full_type == 3:
-                    data['full_scaf_co_type_3'] += 1
-        return data
+                full.scaff_full_type = typ
 
     def _get_all_connections(self) -> list:
         """[get a list of connections but not as objects but as a tuple of the two bases connected via a crossover]

@@ -56,3 +56,26 @@ def get_statistics(data_list, data_name):
             "max_" + data_name: np.max(data_list),
             "min_" + data_name: np.min(data_list),
             }
+
+
+def get_full_scaff_co_typ_stat(design):
+    """[numbers of ]
+
+    Returns:
+        [dict]: [data for database; writung to csv]
+    """
+    # TODO: the designprocess data are not consistant
+    data = {
+        'full_scaf_co_type_1': 0,
+        'full_scaf_co_type_2': 0,
+        'full_scaf_co_type_3': 0
+    }
+    for full in design.full_crossovers:
+        if full.strand_typ == 'scaffold':
+            if full.scaff_full_type == 1:
+                data['full_scaf_co_type_1'] += 1
+            elif full.scaff_full_type == 2:
+                data['full_scaf_co_type_2'] += 1
+            elif full.scaff_full_type == 3:
+                data['full_scaf_co_type_3'] += 1
+    return data
