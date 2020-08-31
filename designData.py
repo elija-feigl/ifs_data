@@ -3,6 +3,7 @@
 
 import nanodesign as nd
 import numpy as np
+import logging
 from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
 from Bio.Seq import Seq
 from classes.crossover import Crossover
@@ -14,6 +15,7 @@ class DesignData(object):
 
     def __init__(self, json: str, name: str, seq: str):
 
+        self.logger = logging.getLogger(__name__)
         self.name: str = name
         self.dna_structure, self.dna_structure_skips = self.init_design(json, seq)
 
@@ -310,7 +312,16 @@ class DesignData(object):
 
     def _create_half_crossover_list(self):
         half_co_tuples = self._get_half_co()
-        return [Crossover('half', co, self.helices) for co in half_co_tuples]
+        half_co = [Crossover('half', co, self.helices) for co in half_co_tuples]
+        for co in half_co:
+            if co.strand_typ == 'scaffold':
+                self.logger.warning(
+                    f"structure {self.name.strip('.json')} contains half scaffold crossovers!"
+                )
+                break
+
+        # eliminating half scaffold crossovers
+        return [co for co in half_co if co.strand_typ != 'scaffold']
 
     def _create_endloops_list(self):
         end_co_tuples = self._get_endloop()
