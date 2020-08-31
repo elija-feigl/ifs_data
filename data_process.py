@@ -14,7 +14,6 @@ from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROP
 from designData import DesignData
 from compute_data import Compute
 
-
 __authors__ = ["Elija Feigl", "Kourosh Zargari"]
 __version__ = "0.2"
 __descr__ = "processes database design files. matlabscript on IFS has to be\
@@ -69,6 +68,8 @@ def process_mat_file(mat_file: IO) -> dict:
 
 
 def proc_input() -> Project:
+    date_str = str(date.today().strftime("%y-%b-%d"))
+
     def get_description() -> str:
         return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
 
@@ -84,7 +85,7 @@ def proc_input() -> Project:
     parser.add_argument("-o", "--output",
                         help="output folder",
                         type=str,
-                        default="./AAA__database__"
+                        default=f"./AAA__database__/{date_str}"
                         )
     parser.add_argument("-d", "--datafile",
                         help="database-file name",
@@ -103,13 +104,15 @@ def proc_input() -> Project:
 
 
 def main():
-    logging.basicConfig()
+    project = proc_input()
+    date_str = str(date.today().strftime("%y-%b-%d"))
+
+    logname = f"{date_str}.log"
+    logging.basicConfig(filename=project.output / logname)
+
     handle = "folding-DB"
     logger = logging.getLogger(handle)
 
-    project = proc_input()
-
-    date_str = str(date.today().strftime("%y-%b-%d"))
     filename = "{}-{}.csv".format(project.filename, date_str)
     fdb_filepath = project.output / filename
 
@@ -155,6 +158,7 @@ def main():
                 e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
                 continue
+
     return
 
 
