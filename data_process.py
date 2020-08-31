@@ -8,7 +8,7 @@ import scipy.io as sio
 
 from pathlib import Path
 from typing import IO
-from datetime import date
+import datetime
 
 from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES
 from designData import DesignData
@@ -68,7 +68,7 @@ def process_mat_file(mat_file: IO) -> dict:
 
 
 def proc_input() -> Project:
-    date_str = str(date.today().strftime("%y-%b-%d"))
+    date_str = str(datetime.date.today().strftime("%y-%b-%d"))
 
     def get_description() -> str:
         return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
@@ -105,9 +105,11 @@ def proc_input() -> Project:
 
 def main():
     project = proc_input()
-    date_str = str(date.today().strftime("%y-%b-%d"))
+    date_str = str(datetime.date.today().strftime("%y-%b-%d"))
+    log_time = str(datetime.datetime.now().strftime("%H-%M"))
 
-    logname = f"{date_str}.log"
+    # NOTE: the log file name is the hour and minute that it has been created.
+    logname = f"fdb-{log_time}.log"
     logging.basicConfig(filename=project.output / logname)
 
     handle = "folding-DB"
