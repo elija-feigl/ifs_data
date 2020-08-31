@@ -74,7 +74,7 @@ def main():
     parser.add_argument("-i", "--input",
                         help="input file",
                         type=str,
-                        default="TTcorr.json",
+                        default="./json/" + "TTcorr.json",
                         )
     args = parser.parse_args()
     json = Path(args.input)
