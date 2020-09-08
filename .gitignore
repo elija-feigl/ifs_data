@@ -4,6 +4,7 @@
 *.txt
 *.mat
 *.csv
+*.log
 *.json
 *.Ds_store
 nanodesign_dietz*
