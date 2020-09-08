@@ -78,7 +78,7 @@ def main():
                         )
     args = parser.parse_args()
     json = Path(args.input)
-    outname = "{}-stat.csv".format(json.name)
+    outname = "./out/{}-stat.csv".format(json.name.split('.json')[0])
     designdata = DesignData(json=json, name=json.name, seq='8064')
     Compute.compute_data(designdata)
     data = Compute.prep_data_for_export(designdata)
