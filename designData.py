@@ -4,6 +4,7 @@
 import nanodesign as nd
 import numpy as np
 import logging
+import itertools
 from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
 from Bio.Seq import Seq
 from classes.crossover import Crossover
@@ -44,6 +45,7 @@ class DesignData(object):
         self.all_crossovers = self._create_all_crossover_list()
         self.full_scaff_position()
         self.stacks = self.get_stacks()
+        self.new_stacks()
 
     def init_design(self, json, seq):
         converter = nd.converters.Converter(modify=True, logg=False)
@@ -507,6 +509,72 @@ class DesignData(object):
         data["ins_density"] = base_ins / len(self.scaf_bases)
 
         return data
+
+    def new_stacks(self):
+        same_pos = dict()
+        stacks = dict()
+
+        for full_coupled in itertools.combinations(self.full_crossovers, 2):
+            if len(full_coupled[0].p) == 4:
+                co_1_pos = (tuple(full_coupled[0].p)[0], tuple(full_coupled[0].p)[2])
+            else:
+                co_1_pos = tuple(full_coupled[0].p)
+
+            if len(full_coupled[1].p) == 4:
+                co_2_pos = (tuple(full_coupled[1].p)[0], tuple(full_coupled[1].p)[2])
+            else:
+                co_2_pos = tuple(full_coupled[1].p)
+
+            subtract = np.abs(np.subtract(co_1_pos, co_2_pos))
+            condition = np.sum(subtract)
+            if condition < 4:
+                for f in full_coupled:
+                    try:
+                        same_pos[co_1_pos].add(f)
+                    except:
+                        same_pos[co_1_pos] = set()
+                        same_pos[co_1_pos].add(f)
+
+        def checker(full_coupled):
+
+            subtract = full_coupled[0].h - full_coupled[1].h
+
+            return subtract
+
+        i = 0
+        for key, co_list in same_pos.items():
+            for full_coupled in itertools.combinations(co_list, 2):
+                subtract_1 = checker(full_coupled)
+
+                if len(subtract_1) == 1:
+                    if len(stacks) == 0:
+                        for f in full_coupled:
+                            try:
+                                stacks[i].add(f)
+                            except:
+                                stacks[i] = set()
+                                stacks[i].add(f)
+                        i += 1
+
+                    else:
+                        for index, stack in stacks.copy().items():
+                            for full_coupled_2 in itertools.combinations(list(stack) + list(full_coupled), 2):
+                                subtract_2 = checker(full_coupled_2)
+                                if len(subtract_2) == 1:
+                                    for f in full_coupled_2:
+                                        stacks[index].add(f)
+
+                                else:
+                                    for f in full_coupled_2:
+                                        try:
+                                            stacks[i].add(f)
+                                        except:
+                                            stacks[i] = set()
+                                            stacks[i].add(f)
+                                    i += 1
+                                    break
+
+        return 1
 
     def get_stacks(self):
         # TODO: the designprocess data are not consistant
