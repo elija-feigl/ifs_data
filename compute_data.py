@@ -15,7 +15,7 @@ class Compute(object):
         data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
         data["n_skips"] = len(designdata.dna_structure.Dhp_skips)
         data["n_nicks"] = len(designdata.get_nicks())
-        data["n_stacks"] = len(designdata.stacks)
+        data["n_stacks"] = len(designdata.get_stacks_lengths())
         data["stacks_length"] = designdata.get_stacks_lengths()
         data["loops_length"] = designdata.get_loops()
         data.update(designdata.get_insertion_deletion_density())

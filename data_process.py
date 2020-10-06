@@ -80,7 +80,7 @@ def proc_input() -> Project:
     parser.add_argument("-i", "--input",
                         help="input folder",
                         type=str,
-                        default="/Users/krshz/Work/Foldingscreens_200602",
+                        default="../Foldingscreens_200602",
                         )
     parser.add_argument("-o", "--output",
                         help="output folder",

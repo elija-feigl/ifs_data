@@ -3,6 +3,7 @@
 
 import nanodesign as nd
 import numpy as np
+from sklearn.cluster import DBSCAN
 import logging
 import itertools
 from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
@@ -45,7 +46,6 @@ class DesignData(object):
         self.all_crossovers = self._create_all_crossover_list()
         self.full_scaff_position()
         self.stacks = self.get_stacks()
-        self.new_stacks()
 
     def init_design(self, json, seq):
         converter = nd.converters.Converter(modify=True, logg=False)
@@ -510,9 +510,10 @@ class DesignData(object):
 
         return data
 
-    def new_stacks(self):
+    def get_stacks(self):
         same_pos = dict()
         stacks = dict()
+        num = 0
 
         for full_coupled in itertools.combinations(self.full_crossovers, 2):
             if len(full_coupled[0].p) == 4:
@@ -531,155 +532,34 @@ class DesignData(object):
                 for f in full_coupled:
                     try:
                         same_pos[co_1_pos].add(f)
-                    except:
+                    except KeyError:
                         same_pos[co_1_pos] = set()
                         same_pos[co_1_pos].add(f)
 
-        def checker(full_coupled):
-
-            subtract = full_coupled[0].h - full_coupled[1].h
-
-            return subtract
-
-        i = 0
         for key, co_list in same_pos.items():
-            for full_coupled in itertools.combinations(co_list, 2):
-                subtract_1 = checker(full_coupled)
+            stacks.setdefault(key, [])
+            h_list = [co.h for co in co_list]
+            dummy_stacks = np.array(h_list)
+            for j in range(int(np.log2(len(h_list)) + 2)):
 
-                if len(subtract_1) == 1:
-                    if len(stacks) == 0:
-                        for f in full_coupled:
-                            try:
-                                stacks[i].add(f)
-                            except:
-                                stacks[i] = set()
-                                stacks[i].add(f)
-                        i += 1
+                for coup in itertools.combinations(dummy_stacks, 2):
+                    if len(coup[0].intersection(coup[1])) != 0:
+                        dummy_stacks[np.where(dummy_stacks == coup[0])] = coup[0].union(coup[1])
+                        dummy_stacks[np.where(dummy_stacks == coup[1])] = coup[0].union(coup[1])
+                dummy_stacks = np.unique(np.array(dummy_stacks))
 
-                    else:
-                        for index, stack in stacks.copy().items():
-                            for full_coupled_2 in itertools.combinations(list(stack) + list(full_coupled), 2):
-                                subtract_2 = checker(full_coupled_2)
-                                if len(subtract_2) == 1:
-                                    for f in full_coupled_2:
-                                        stacks[index].add(f)
-
-                                else:
-                                    for f in full_coupled_2:
-                                        try:
-                                            stacks[i].add(f)
-                                        except:
-                                            stacks[i] = set()
-                                            stacks[i].add(f)
-                                    i += 1
-                                    break
-
-        return 1
-
-    def get_stacks(self):
-        # TODO: the designprocess data are not consistant
-        """[get the list of all stacks in the structure]
-
-        return  [stacks: a list of stacks]
-        """
-
-        stacks = list()
-        added = list()
-        J = 0
-        K = 0
-
-        full_packed_co = list()
-        same_pos = list()
-        dummy = list()
-        full_packed_co.extend(self._full_co_tuples)
-        for f in full_packed_co:
-            added.append(False)
-
-        for full in full_packed_co:
-            if added[J] is False:
-                K = 0
-                for full_1 in full_packed_co:
-                    if (full != full_1) and (added[K] is False) and (np.abs(full[0][0].p - full_1[0][0].p) <= 3):
-                        dummy.append(full_1)
-                        added[K] = True
-                    K = K + 1
-                if len(dummy) >= 1:
-                    dummy.append(full)
-                    added[J] = True
-                # dummy = tuple(dummy)
-                same_pos.append(dummy)
-                dummy = list()
-            J = J + 1
-
-        def common(lst1, lst2):
-            return list(set(lst1) & set(lst2))
-
-        def checker(full, group, dummy):
-            h = list()
-            h_1 = list()
-            dummy = list()
-
-            for co in full:
-                for base in co:
-                    if base.h not in h:
-                        h.append(base.h)
-
-                for full_1 in group:
-                    for co in full_1:
-                        for base in co:
-                            if base.h not in h_1:
-                                h_1.append(base.h)
-
-                    if len(common(h, h_1)) == 1:
-                        if full_1 not in dummy:
-                            dummy.append(full_1)
-                        else:
-                            pass
-                        if full not in dummy:
-                            dummy.append(full)
-                        else:
-                            pass
-
-                    h_1 = list()
-            h = list()
-
-            return dummy
-
-        dummy = list()
-        checked = set()
-
-        for group in same_pos:
-            for f in group:
-                if f not in checked:
-                    dummy.extend(checker(f, group, dummy))
-                    checked.add(f)
-
-                    if len(dummy) >= 1:
-                        n = 0
-                        while n < len(group):
-                            for ff in dummy:
-                                if ff not in checked:
-                                    dummy.extend(checker(ff, group, dummy))
-                                    checked.add(ff)
-                            n = n + 1
-                        n = 0
-
-                        dummy = tuple(set(tuple(dummy)))
-                        if dummy not in stacks:
-                            stacks.append(dummy)
-
-                        dummy = list()
-
-                    else:
-                        checked.add(f)
-                        continue
-
-            checked = set()
+            for stack in dummy_stacks:
+                if len(stack) < 3:
+                    dummy_stacks[np.where(dummy_stacks == stack)] = set()
+                else:
+                    if stack not in stacks[key]:
+                        stacks.setdefault(key, []).append(stack)
+                        num += 1
 
         return stacks
 
     def get_stacks_lengths(self):
-        return [len(stack) for stack in self.stacks]
+        return [(len(stack) - 1) for stacks in self.stacks.values() for stack in stacks]
 
     def get_co_density(self):
         """[calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)]
