@@ -51,13 +51,13 @@ def get_statistics(data_list, data_name):
     Returns:
         [type] -- [description]
     """
-    try:
+    if len(data_list) != 0:
         return {"avg_" + data_name: np.average(data_list),
                 "std_" + data_name: np.std(data_list),
                 "max_" + data_name: np.max(data_list),
                 "min_" + data_name: np.min(data_list),
                 }
-    except ValueError:
+    else:
         return {"avg_" + data_name: 0,
                 "std_" + data_name: 0,
                 "max_" + data_name: 0,
