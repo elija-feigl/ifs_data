@@ -516,13 +516,13 @@ class DesignData(object):
         num = 0
 
         for full_coupled in itertools.combinations(self.full_crossovers, 2):
-            if len(full_coupled[0].p) == 4:
-                co_1_pos = (tuple(full_coupled[0].p)[0], tuple(full_coupled[0].p)[2])
+            if len(full_coupled[0].p) >= 3:
+                co_1_pos = (tuple(full_coupled[0].p)[0], tuple(full_coupled[0].p)[-1])
             else:
                 co_1_pos = tuple(full_coupled[0].p)
 
-            if len(full_coupled[1].p) == 4:
-                co_2_pos = (tuple(full_coupled[1].p)[0], tuple(full_coupled[1].p)[2])
+            if len(full_coupled[1].p) >= 3:
+                co_2_pos = (tuple(full_coupled[1].p)[0], tuple(full_coupled[1].p)[-1])
             else:
                 co_2_pos = tuple(full_coupled[1].p)
 
