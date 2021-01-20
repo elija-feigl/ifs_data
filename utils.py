@@ -51,11 +51,18 @@ def get_statistics(data_list, data_name):
     Returns:
         [type] -- [description]
     """
-    return {"avg_" + data_name: np.average(data_list),
-            "std_" + data_name: np.std(data_list),
-            "max_" + data_name: np.max(data_list),
-            "min_" + data_name: np.min(data_list),
-            }
+    if len(data_list) != 0:
+        return {"avg_" + data_name: np.average(data_list),
+                "std_" + data_name: np.std(data_list),
+                "max_" + data_name: np.max(data_list),
+                "min_" + data_name: np.min(data_list),
+                }
+    else:
+        return {"avg_" + data_name: 0,
+                "std_" + data_name: 0,
+                "max_" + data_name: 0,
+                "min_" + data_name: 0,
+                }
 
 
 def get_full_scaff_co_typ_stat(design):

@@ -1,6 +1,7 @@
 from designData import DesignData
 import argparse
 from pathlib import Path
+import scipy.io as sio
 from utils import get_statistics, get_full_scaff_co_typ_stat
 
 
@@ -15,7 +16,7 @@ class Compute(object):
         data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
         data["n_skips"] = len(designdata.dna_structure.Dhp_skips)
         data["n_nicks"] = len(designdata.get_nicks())
-        data["n_stacks"] = len(designdata.stacks)
+        data["n_stacks"] = len(designdata.get_stacks_lengths())
         data["stacks_length"] = designdata.get_stacks_lengths()
         data["loops_length"] = designdata.get_loops()
         data.update(designdata.get_insertion_deletion_density())
@@ -74,14 +75,17 @@ def main():
     parser.add_argument("-i", "--input",
                         help="input file",
                         type=str,
-                        default="TTcorr.json",
+                        default="./json/" + "T9hp.json",
                         )
     args = parser.parse_args()
     json = Path(args.input)
-    outname = "{}-stat.csv".format(json.name)
+    outname = "./out/{}-stat.csv".format(json.name.split('.json')[0])
     designdata = DesignData(json=json, name=json.name, seq='8064')
     Compute.compute_data(designdata)
     data = Compute.prep_data_for_export(designdata)
+
+    mat = sio.loadmat("./mat/" + "CS_T9hp_data.mat", squeeze_me=True)
+
     with open(outname, mode="w+") as outfile:
         header = ",".join(str(k) for k in data.keys())
         outfile.write(header + "\n")

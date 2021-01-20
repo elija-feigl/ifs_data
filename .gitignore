@@ -6,8 +6,9 @@
 *.csv
 *.log
 *.json
+*.log
 *.Ds_store
-/AAA__database__
+package*
 nanodesign_dietz*
 Files/.MK_beachball1-7_data.mat.icloud
 .data_analysis.ipynb.icloud
@@ -15,3 +16,5 @@ data_analysis.ipynb
 design_analysis.ipynb
 .vscode/**
 .gitignore
+json/.PS_alessio_v3___data.mat.icloud
+AAA__database__/20-Aug-31/.~lock.fdb-20-Aug-31.csv#

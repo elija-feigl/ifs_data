@@ -8,12 +8,11 @@ import scipy.io as sio
 
 from pathlib import Path
 from typing import IO
-from datetime import date
+import datetime
 
 from utils import Project, ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES
 from designData import DesignData
 from compute_data import Compute
-
 
 __authors__ = ["Elija Feigl", "Kourosh Zargari"]
 __version__ = "0.2"
@@ -69,6 +68,8 @@ def process_mat_file(mat_file: IO) -> dict:
 
 
 def proc_input() -> Project:
+    date_str = str(datetime.date.today().strftime("%y-%b-%d"))
+
     def get_description() -> str:
         return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
 
@@ -79,12 +80,12 @@ def proc_input() -> Project:
     parser.add_argument("-i", "--input",
                         help="input folder",
                         type=str,
-                        default="/Users/krshz/Work/Foldingscreens_200602",
+                        default="D:/work/Dropbox (DIETZ LAB)/FOLDINGSCREENS",
                         )
     parser.add_argument("-o", "--output",
                         help="output folder",
                         type=str,
-                        default="./AAA__database__"
+                        default=f"./AAA__database__/{date_str}"
                         )
     parser.add_argument("-d", "--datafile",
                         help="database-file name",
@@ -103,13 +104,17 @@ def proc_input() -> Project:
 
 
 def main():
-    logging.basicConfig()
+    project = proc_input()
+    date_str = str(datetime.date.today().strftime("%y-%b-%d"))
+    log_time = str(datetime.datetime.now().strftime("%H-%M"))
+
+    # NOTE: the log file name is the hour and minute that it has been created.
+    logname = f"fdb-{log_time}.log"
+    logging.basicConfig(filename=project.output / logname)
+
     handle = "folding-DB"
     logger = logging.getLogger(handle)
 
-    project = proc_input()
-
-    date_str = str(date.today().strftime("%y-%b-%d"))
     filename = "{}-{}.csv".format(project.filename, date_str)
     fdb_filepath = project.output / filename
 
@@ -155,6 +160,7 @@ def main():
                 e_ = "data export   " + EXC_TXT[14:].format(child.name, e)
                 logger.error(e_)
                 continue
+
     return
 
 
