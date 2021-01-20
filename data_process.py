@@ -80,7 +80,7 @@ def proc_input() -> Project:
     parser.add_argument("-i", "--input",
                         help="input folder",
                         type=str,
-                        default="D:\work\Dropbox (DIETZ LAB)\FOLDINGSCREENS",
+                        default="D:/work/Dropbox (DIETZ LAB)/FOLDINGSCREENS",
                         )
     parser.add_argument("-o", "--output",
                         help="output folder",
