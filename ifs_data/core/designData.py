@@ -1,30 +1,44 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-3
 
-import nanodesign as nd
 import numpy as np
-from sklearn.cluster import DBSCAN
 import logging
 import itertools
+import attr
+
+from statistics import mean
+from typing import List, Dict, Tuple, Set
+
+import nanodesign as nd
+from nanodesign.converters import Converter
+from nanodesign.data.base import DnaBase as Base
+from nanodesign.data.strand import DnaStrand as Strand
 from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
 from Bio.Seq import Seq
-from classes.crossover import Crossover
-from classes.nicks import Nick
-from statistics import mean
+
+from ..data.crossover import Crossover
+from ..data.nicks import Nick
 
 
+@attr.s
 class DesignData(object):
+    json: str = attr.ib()
+    name: str = attr.ib()
+    seq: str = attr.ib()
 
-    def __init__(self, json: str, name: str, seq: str):
+    def __attrs_post_init__(self):
 
         self.logger = logging.getLogger(__name__)
-        self.name: str = name
-        self.dna_structure, self.dna_structure_skips = self.init_design(json, seq)
+        logging.getLogger("nanodesign").setLevel(logging.WARNING)
+
+        self.dna_structure, self.dna_structure_skips = self.init_design()
 
         # strand, base
         self.strands: list = self.dna_structure.strands
-        self.staples = self._get_staple()
+        self.staples = self._get_staples()
         self.hps_base, self.hps_base_skips = self._init_hps(), self._init_hps_skips()
+        self.Dhp_skips = {key: value for key, value in self.hps_base_skips.items(
+        ) if self.hps_base.get(key) is None}
         self.scaf_bases = self._get_all_scaf_bases()
 
         # helix
@@ -32,174 +46,120 @@ class DesignData(object):
         self.staple_helix_dict = self._get_helix_data()
 
         # domain
-        self._init_domain_data()
+        self.domain_data = {
+            staple: staple.domain_list for staple in self.staples}
+        self.domain_lengths_data = {staple: [len(domain.base_list) for domain in domain]
+                                    for staple, domain in self.domain_data.items()}
+        self.n_staples_domains = {staple: len(
+            self.domain_data[staple]) for staple in self.domain_data.keys()}
         self.long_domains = self.get_staples_with_long_domains()
-        self.staple_domains_melt_t: dict = self.staple_domains_melt_t()
+        self.staple_domains_melt_t = self.get_staple_domains_melt_t()
         # NOTE: dictionary of staples and maximum melting temp of domains for each staple
-        self.max_staple_melt_t = {key: max(value) for (key, value) in self.staple_domains_melt_t.items()}
+        self.max_staple_melt_t = {key: max(value) for (
+            key, value) in self.staple_domains_melt_t.items()}
 
         # crossover
         self._all_co_sets = self._get_all_connections()
+        self._end_co_sets = self._get_endloop()
+
+        self._full_co_sets_seperate, self._full_co_tuples = self._get_full_co_list()
+
         self.full_crossovers = self._create_full_crossover_list()
         self.endloops = self._create_endloops_list()
         self.half_crossovers = self._create_half_crossover_list()
         self.all_crossovers = self._create_all_crossover_list()
-        self.full_scaff_position()
+        self._full_crossovers_assign_type()
         self.stacks = self.get_stacks()
 
-    def init_design(self, json, seq):
-        converter = nd.converters.Converter(modify=True, logg=False)
-        converter.read_cadnano_file(json, None, seq)
+    def init_design(self):
+        converter = Converter()
+
+        converter.read_cadnano_file(self.json, None, self.seq)
         converter.dna_structure.compute_aux_data()
-        converter_skip = nd.converters.Converter(modify=False, logg=False)
-        converter_skip.read_cadnano_file(json, None, seq)
-        converter_skip.dna_structure.compute_aux_data()
-        return converter.dna_structure, converter_skip.dna_structure
+        dna_structure_skip = converter.dna_structure
 
-    def _close_strand(self, strand):
-        """[closes the scaffold andmaking it a loop]
+        converter.modify = True
+        converter.read_cadnano_file(self.json, None, self.seq)
+        converter.dna_structure.compute_aux_data()
+        dna_structure = converter.dna_structure
 
-        Returns:
-            [strand] -- [closed scaffold strand]
-        """
+        return dna_structure, dna_structure_skip
+
+    def _close_strand(self, strand: Strand) -> None:
+        """ closes a given strand, making it a loop."""
         start = strand.tour[0]
         end = strand.tour[-1]
         start.up, end.down = end, start
         self.dna_structure.strands[start.strand].is_circular = True
 
-        return strand
-
-    def _get_staple(self) -> list:
+    def _get_staples(self) -> List[Strand]:
         return [strand for strand in self.strands if not strand.is_scaffold]
 
-    def _init_hps(self) -> dict:
-        """[create a dictionary of bases positions and the bases itself for all bases in the structure excluding the skips]
-
-        Returns:
-            dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
+    def _init_hps(self) -> Dict[Tuple[int, int, bool], Base]:
+        """create a dictionary of bases positions and the bases itself for all bases in the structure excluding the skips
         """
         hps_base = dict()
         for strand in self.dna_structure.strands:
             hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
         return hps_base
 
-    def _init_hps_skips(self) -> dict:
-        """[create a dictionary of bases positions and the bases itself for all bases in the structure including the skips]
-
-        Returns:
-            dict: [keys: position = (base.h, base.p, base.is_scaf), values: base object]
+    def _init_hps_skips(self) -> Dict[Tuple[int, int, bool], Base]:
+        """create a dictionary of bases positions and the bases itself for all bases in the structure including the skips
         """
         hps_base_skips = dict()
         for strand in self.dna_structure_skips.strands:
-            hps_base_skips.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
+            hps_base_skips.update(
+                {(base.h, base.p, base.is_scaf): base for base in strand.tour})
         return hps_base_skips
 
-    def _get_base_from_hps(self, h, p, is_scaffold, dir=1):
-        """[get the base object from its coordination: (h, p is_scaffold)]
-
-        Arguments:
-            h {[int]} -- [helix]
-            p {[int]} -- [position]
-            is_scaffold {bool} -- [scaffold = True or staple = False]
-
-        Keyword Arguments:
-            dir {int} -- [direction] (default: {1})
-
-        Returns:
-            [base] -- [base of the giver coordination]
+    def _get_neighbor_from_hps(self, h: int, p: int, is_scaffold: bool, dir: int = 1) -> Base:
+        """get the base object from its coordination: (h, p is_scaffold) into given direction dir (default: {1})
         """
-
-        if (h, p) in self.dna_structure.Dhp_skips:
+        if (h, p, is_scaffold) in self.Dhp_skips.keys():
             p += np.sign(dir)
-
         return self.hps_base.get((h, p, is_scaffold), None)
 
-    def get_base_plus_minus(self, base):
-        """[given a base, it returns the neighbour bases]
-
-        Returns:
-            [base_plus] -- [base with one position up along the helix]
-            [base_minus] -- [base with on position down along the helix]
+    def get_base_plus_minus(self, base: Base) -> Tuple[Base, Base]:
+        """ given a base, it returns the neighbour bases
         """
-        base_plus = self._get_base_from_hps(base.h, base.p + 1, base.is_scaf)
-        base_minus = self._get_base_from_hps(base.h, base.p - 1, base.is_scaf, dir=-1)
-
+        base_plus = self._get_neighbor_from_hps(
+            base.h, base.p + 1, base.is_scaf)
+        base_minus = self._get_neighbor_from_hps(
+            base.h, base.p - 1, base.is_scaf, dir=-1)
         return base_plus, base_minus
 
-    def _get_first_last_bases_of_strands(self):
-        """
-        Returns:
-            [set]: [
-                firstbases: a set of first bases of all the staples
-                lastbases: a set of last bases of all the staples
-                ]
-        """
-
-        first_bases = {staple.tour[0] for staple in self.staples}
-        last_bases = {staple.tour[-1] for staple in self.staples}
-
-        return first_bases, last_bases
-
-    def get_lattice_type(self):
+    def get_lattice_type(self) -> str:
         if type(self.dna_structure.lattice) == nd.data.lattice.SquareLattice:
             return "Square"
         else:
             return "Honeycomb"
 
-    def get_dimension(self):
-        """[gets the dimension of the structure.]
-
-        Returns:
-            [tuple]: [
-                a: max length of the columns in CadNano
-                b: max length of the rows in Cadnano
-                c: diffrence of min base postion in the struction and the max base position in Cadnano (structure's depth)
-            ]
-        NOTE: the values could be wrong for exotic designs
+    def get_dimension(self) -> Tuple[int, int, int]:
+        """gets the dimension of the structure as columns, rows, and position (min-max)
+            NOTE: these values are wrong for multidomain designs
         """
 
         lattice_cols = [helix.lattice_col for helix in self.helices.values()]
         lattice_rows = [helix.lattice_row for helix in self.helices.values()]
         base_pos = [base.p for base in self.scaf_bases]
 
-        a = max(lattice_cols) - min(lattice_cols) + 1
-        b = max(lattice_rows) - min(lattice_rows) + 1
-        c = max(base_pos) - min(base_pos) + 1
+        columns = max(lattice_cols) - min(lattice_cols) + 1
+        rows = max(lattice_rows) - min(lattice_rows) + 1
+        bases = max(base_pos) - min(base_pos) + 1
+        return (columns, rows, bases)
 
-        return (a, b, c)
-
-    def _get_all_scaf_bases(self) -> list:
+    def _get_all_scaf_bases(self) -> List[Base]:
         return [base for strand in self.strands for base in strand.tour if strand.is_scaffold]
 
-    def get_staples_length(self) -> list:
-        """[creates a list of staples length]
-
-        Returns:
-            list: [staples length]
-        """
+    def get_staples_length(self) -> List[int]:
+        """creates a list of the length of each staple"""
         return [len([base for base in staple.tour]) for staple in self.staples]
 
-    def _init_domain_data(self) -> dict:
-        """[creates a three dictionary of staples and their domains informations]
-
-        Returns:
-            dict -- domain_data:  [dictionary of staples and list of their domains]
-            dict -- domain_lengths_data:  [dictionary of staples and list of their domains lengths]
-            dict -- n_staples_domains:  [dictionary of staples and number of their domains]
+    def get_staple_domains_melt_t(self) -> Dict[Strand, List[float]]:
+        """ list of domain melting temperatures for each staple
         """
-        self.domain_data = {staple: staple.domain_list for staple in self.staples}
-        self.domain_lengths_data = {staple: [len(domain.base_list) for domain in domain]
-                                    for staple, domain in self.domain_data.items()}
-        self.n_staples_domains = {staple: len(self.domain_data[staple]) for staple in self.domain_data.keys()}
-
-    def staple_domains_melt_t(self) -> dict:
-        """[staples domain melting temperature.]
-
-        Returns:
-            dict: [key: staple. values: list of domains' melting temperature.]
-        """
-        staple_domains_melt_t = {}
-
+        # TODO: cleanup
+        staple_domains_melt_t = dict()
         for staple, domains in self.domain_data.items():
             for domain in domains:
                 if "N" not in domain.sequence:
@@ -212,34 +172,30 @@ class DesignData(object):
                     else:
                         staple_domains_melt_t.setdefault(staple, []).append(MeltingTemp.Tm_Wallace(
                             Seq(domain.sequence)))
-
         return staple_domains_melt_t
 
-    def get_alpha_value(self):
-        """[alpha value : The ratio of number of staples having doamins with melting
-        temperature higher than critical temperature to the number of all staples in the structure]
-
-        Returns:
-            [dict]: [alpha values of the structure for different critical temperatures]
+    def get_alpha_value(self) -> Dict[int, float]:
+        """ alpha value : The ratio of number of staples having doamins with melting
+            temperature higher than critical temperature to the number of all staples in the structure]
         """
-
         T_crit = {40: int, 55: int, 70: int}
 
-        def calculate(self, T_crit):
+        def calculate(max_staple_melt_t, T_crit):
+            """ calculates alpha value for a given critical temperature
             """
-            [calculates alpha value for a given critical temperature]
-            """
-            return sum([True for T in list(self.max_staple_melt_t.values()) if T >= T_crit]) / len(self.max_staple_melt_t)
+            maxT_staple_domains = list(max_staple_melt_t.values())
+            n_domains_critical = [
+                True for T in maxT_staple_domains if T >= T_crit]
+            n_domains_total = len(maxT_staple_domains)
+            return sum(n_domains_critical) / n_domains_total
 
-        alpha_values = {T: calculate(self, T) for T in T_crit}
-
+        alpha_values = {T: calculate(self.max_staple_melt_t, T)
+                        for T in T_crit}
         return alpha_values
 
-    def get_staples_with_long_domains(self) -> dict:
-        """[long domain are domains with 14 or more bases]
-
-        Returns:
-            dict -- [staples : numbers of long_domains for the each staple]
+    def get_staples_with_long_domains(self) -> Dict[Strand, int]:
+        """ computes numbers of long_domains for the each staple
+                long domain are domains with 14 or more bases
         """
         return {staple: len(list(filter(lambda x: x >= 14, domain_length)))
                 for staple, domain_length in self.domain_lengths_data.items()}
@@ -254,6 +210,7 @@ class DesignData(object):
                 0_long_domains: having no long domain,
                 co_rule_violation: unpaired domains with less than 5 bases]
         """
+        # TODO: cleanup
         data = dict()
         domain_unpaired = list()
 
@@ -266,29 +223,24 @@ class DesignData(object):
                 data.setdefault("0_long_domains", []).append(staple)
 
         for staple, domains in self.domain_data.items():
-            domain_unpaired.extend([domain for domain in domains if domain.base_list[0].across is None])
+            domain_unpaired.extend(
+                [domain for domain in domains if domain.base_list[0].across is None])
 
             data.setdefault("co_rule_violation", []).extend(
                 [domain for domain in domains if (domain not in domain_unpaired) and (len(domain.base_list) < 5)])
-
         return data
 
-    def _get_helix_data(self) -> dict:
-        """
-        [creates a two dictionary with staple and helices that it passes through]
-
-        Returns:
-            dict: [
-                staple_helix_dict: [staple: helices ID the staple passes through],
-
+    def _get_helix_data(self) -> Dict[Strand, Set[int]]:
+        """ creates a dictionary with a set of helices that it passes through for each staple
         """
         return {staple: {base.h for base in staple.tour} for staple in self.staples}
 
-    def get_num_staple_helix(self):
+    def get_num_staple_helix(self) -> List[int]:
         return [len(helix_ids) for helix_ids in self.staple_helix_dict.values()]
 
-    def get_nicks(self) -> int:
-        # order of nick is always (first base,last base)
+    def get_nicks(self) -> List[Nick]:
+        """ order of nick is always (first base,last base)
+        """
         nicks = list()
 
         def create_nick(base, neighbor_base):
@@ -298,23 +250,23 @@ class DesignData(object):
             nick = Nick(bases, set(p), set(h))
             return nick
 
-        first_bases, last_bases = self._get_first_last_bases_of_strands()
+        first_bases = {staple.tour[0] for staple in self.staples}
+        last_bases = {staple.tour[-1] for staple in self.staples}
         for base in first_bases:
             base_plus, base_minus = self.get_base_plus_minus(base)
             if base_plus in last_bases:
                 nicks.append(create_nick(base, base_plus))
             if base_minus in last_bases:
                 nicks.append(create_nick(base, base_minus))
-
         return nicks
 
     def _create_full_crossover_list(self):
-        self._get_full_co_list()
         return [Crossover('full', co, self.helices) for co in self._full_co_tuples]
 
     def _create_half_crossover_list(self):
         half_co_tuples = self._get_half_co()
-        half_co = [Crossover('half', co, self.helices) for co in half_co_tuples]
+        half_co = [Crossover('half', co, self.helices)
+                   for co in half_co_tuples]
         for co in half_co:
             if co.strand_typ == 'scaffold':
                 self.logger.warning(
@@ -326,13 +278,14 @@ class DesignData(object):
         return [co for co in half_co if co.strand_typ != 'scaffold']
 
     def _create_endloops_list(self):
-        end_co_tuples = self._get_endloop()
+        end_co_tuples = [tuple([tuple(end), None])
+                         for end in self._end_co_sets]
         return [Crossover('end', co, self.helices)for co in end_co_tuples]
 
     def _create_all_crossover_list(self):
         return self.half_crossovers + self.endloops + self.full_crossovers
 
-    def full_scaff_position(self):
+    def _full_crossovers_assign_type(self):
         """[assign type to full crossover: position of the full scaffold crossover depending on
         the position suggested by cadnano]
         """
@@ -385,7 +338,7 @@ class DesignData(object):
         # NOTE: closing the scaffold
         for strand in self.strands:
             if strand.is_scaffold:
-                self.strands[strand.id] = self._close_strand(strand)
+                self._close_strand(strand)
 
         for strand in self.strands:
             for base in strand.tour:
@@ -401,7 +354,7 @@ class DesignData(object):
 
         return [set(co) for co in all_co_tuples]
 
-    def _get_full_co_list(self) -> list:
+    def _get_full_co_list(self):
         """[gets the full crossovers as tuples of bases]
 
         Returns:
@@ -413,16 +366,18 @@ class DesignData(object):
                 (every Co in frozenset of two bases)
                     ]
         """
-        self._full_co_sets_seperate = list()
-        self._full_co_tuples = list()
+        full_co_sets_seperate = list()
+        full_co_tuples = list()
 
         full_co_list = list()
 
         for co in self._all_co_sets:
             co_neighbours = dict()
 
-            co_neighbours["plus"] = {self.get_base_plus_minus(base)[0] for base in co}
-            co_neighbours["minus"] = {self.get_base_plus_minus(base)[1] for base in co}
+            co_neighbours["plus"] = {
+                self.get_base_plus_minus(base)[0] for base in co}
+            co_neighbours["minus"] = {
+                self.get_base_plus_minus(base)[1] for base in co}
 
             full_co_list.extend([frozenset([frozenset(co_neighbours[typ]), frozenset(co)])
                                  for typ in ["plus", "minus"] if co_neighbours[typ] in self._all_co_sets])
@@ -434,24 +389,23 @@ class DesignData(object):
         full_co_set = set(full_co_list)
         for full_set in full_co_set:
 
-            self._full_co_tuples.append(tuple([tuple(co) for co in full_set]))
-            self._full_co_sets_seperate.extend([co for co in full_set])
+            full_co_tuples.append(tuple([tuple(co) for co in full_set]))
+            full_co_sets_seperate.extend([co for co in full_set])
 
-        # return full_co_sets_seperate, full_co_tuples
+        return full_co_sets_seperate, full_co_tuples
 
     def _get_endloop(self) -> list:
         # NOTE: we want to ensure bases has consistent type regardless of type
 
-        self._end_co_sets = list()
+        _end_co_sets = list()
         for co in self._all_co_sets:
             for base in co:
                 base_plus, base_minus = self.get_base_plus_minus(base)
 
                 is_none = (base_plus is None) or (base_minus is None)
-                if (is_none) and (co not in self._end_co_sets):
-                    self._end_co_sets.append(frozenset(co))
-
-        return [tuple([tuple(end), None]) for end in self._end_co_sets]
+                if (is_none) and (co not in _end_co_sets):
+                    _end_co_sets.append(frozenset(co))
+        return _end_co_sets
 
     def _get_half_co(self) -> list:
         # NOTE: we want to ensure bases has consistent type regardless of type
@@ -505,7 +459,8 @@ class DesignData(object):
                 if base.num_insertions != 0:
                     base_ins += 1
 
-        data["del_density"] = len(self.dna_structure.Dhp_skips) / len(self.scaf_bases)
+        data["del_density"] = len(
+            self.Dhp_skips) / len(self.scaf_bases)
         data["ins_density"] = base_ins / len(self.scaf_bases)
 
         return data
@@ -517,12 +472,14 @@ class DesignData(object):
 
         for full_coupled in itertools.combinations(self.full_crossovers, 2):
             if len(full_coupled[0].p) >= 3:
-                co_1_pos = (tuple(full_coupled[0].p)[0], tuple(full_coupled[0].p)[-1])
+                co_1_pos = (tuple(full_coupled[0].p)[
+                            0], tuple(full_coupled[0].p)[-1])
             else:
                 co_1_pos = tuple(full_coupled[0].p)
 
             if len(full_coupled[1].p) >= 3:
-                co_2_pos = (tuple(full_coupled[1].p)[0], tuple(full_coupled[1].p)[-1])
+                co_2_pos = (tuple(full_coupled[1].p)[
+                            0], tuple(full_coupled[1].p)[-1])
             else:
                 co_2_pos = tuple(full_coupled[1].p)
 
@@ -540,12 +497,14 @@ class DesignData(object):
             stacks.setdefault(key, [])
             h_list = [co.h for co in co_list]
             dummy_stacks = np.array(h_list)
-            for j in range(int(np.log2(len(h_list)) + 2)):
+            for _ in range(int(np.log2(len(h_list)) + 2)):
 
                 for coup in itertools.combinations(dummy_stacks, 2):
                     if len(coup[0].intersection(coup[1])) != 0:
-                        dummy_stacks[np.where(dummy_stacks == coup[0])] = coup[0].union(coup[1])
-                        dummy_stacks[np.where(dummy_stacks == coup[1])] = coup[0].union(coup[1])
+                        dummy_stacks[np.where(
+                            dummy_stacks == coup[0])] = coup[0].union(coup[1])
+                        dummy_stacks[np.where(
+                            dummy_stacks == coup[1])] = coup[0].union(coup[1])
                 dummy_stacks = np.unique(np.array(dummy_stacks))
 
             for stack in dummy_stacks:
@@ -562,8 +521,8 @@ class DesignData(object):
         return [(len(stack) - 1) for stacks in self.stacks.values() for stack in stacks]
 
     def get_co_density(self):
-        """[calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)]
-        NOTE: the values for number of possible_co and co_desity are not exact but close to the true value
+        """ calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)
+            NOTE: the values for number of possible_co and co_desity are not exact but close to the true value
         """
         # TODO: possible_ co numbers are not exactly correct
         def is_ds(pos, hid):
@@ -664,7 +623,8 @@ class DesignData(object):
 
     def get_blunt_ends(self):
         blunt_ends = set()
-        first_bases, last_bases = self._get_first_last_bases_of_strands()
+        first_bases = {staple.tour[0] for staple in self.staples}
+        last_bases = {staple.tour[-1] for staple in self.staples}
 
         for end in self.endloops:
             has_across = (end.bases[0][0].across is True) and (

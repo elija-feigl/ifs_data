@@ -7,7 +7,7 @@ from pathlib import Path
 
 import scipy.io as sio
 
-from ..core.compute_data import Compute
+from ..database.compute_data import Compute
 from ..core.designData import DesignData
 
 

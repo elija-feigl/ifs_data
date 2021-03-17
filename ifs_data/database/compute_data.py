@@ -1,20 +1,23 @@
-from designData import DesignData
-import argparse
-from pathlib import Path
-import scipy.io as sio
-from utils import get_statistics, get_full_scaff_co_typ_stat
+import attr
+import logging
+
+from .utils import get_statistics, get_full_scaff_co_typ_stat
+from .designData import DesignData
 
 
+@attr.s
 class Compute(object):
 
-    def compute_data(designdata) -> None:
+    logger = logging.getLogger(__name__)
+
+    def compute_data(self, designdata: DesignData) -> None:
         data = {}
         data["name"] = designdata.name
         data["lattice_type"] = designdata.get_lattice_type()
         data["dim_x"], data["dim_y"], data["dim_z"] = designdata.get_dimension()
         data['alpha_value'] = designdata.get_alpha_value()
         data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
-        data["n_skips"] = len(designdata.dna_structure.Dhp_skips)
+        data["n_skips"] = len(designdata.Dhp_skips)
         data["n_nicks"] = len(designdata.get_nicks())
         data["n_stacks"] = len(designdata.get_stacks_lengths())
         data["stacks_length"] = designdata.get_stacks_lengths()
@@ -31,7 +34,8 @@ class Compute(object):
         data["n_staples_domains"] = list(designdata.n_staples_domains.values())
         data["long_domains"] = list(designdata.long_domains.values())
         data.update(designdata.divide_domain_lengths())
-        data["staple_domain_melt_T"] = list(designdata.max_staple_melt_t.values())
+        data["staple_domain_melt_T"] = list(
+            designdata.max_staple_melt_t.values())
 
         # crossovers
         data["co_set"] = designdata.classify_crossovers()
@@ -40,7 +44,7 @@ class Compute(object):
 
         designdata.data = data
 
-    def prep_data_for_export(designdata) -> dict:
+    def prep_data_for_export(self, designdata) -> dict:
         export = dict()
         for name, value in designdata.data.items():
             if name in ["co_set", "co_possible", "co_density"]:
@@ -49,7 +53,8 @@ class Compute(object):
                         if (strand_name == 'scaffold') and (typ in ['half', 'half_v', 'half_h']):
                             pass
                         else:
-                            export["{}_{}_{}".format(name, strand_name, typ)] = n_co
+                            export["{}_{}_{}".format(
+                                name, strand_name, typ)] = n_co
 
             elif name in ["staples_length", "helices_staples_pass", "n_staples_domains",
                           "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length"]:
@@ -68,30 +73,3 @@ class Compute(object):
                 export[name] = value
 
         return export
-
-
-def main():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-i", "--input",
-                        help="input file",
-                        type=str,
-                        default="./json/" + "T9hp.json",
-                        )
-    args = parser.parse_args()
-    json = Path(args.input)
-    outname = "./out/{}-stat.csv".format(json.name.split('.json')[0])
-    designdata = DesignData(json=json, name=json.name, seq='8064')
-    Compute.compute_data(designdata)
-    data = Compute.prep_data_for_export(designdata)
-
-    mat = sio.loadmat("./mat/" + "CS_T9hp_data.mat", squeeze_me=True)
-
-    with open(outname, mode="w+") as outfile:
-        header = ",".join(str(k) for k in data.keys())
-        outfile.write(header + "\n")
-        export = ",".join(str(v) for v in data.values())
-        outfile.write(export + "\n")
-
-
-if __name__ == "__main__":
-    main()

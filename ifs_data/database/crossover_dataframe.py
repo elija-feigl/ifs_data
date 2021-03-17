@@ -1,8 +1,8 @@
-from designData import DesignData
 import pandas as pd
 import argparse
 from pathlib import Path
 
+from ..core.designData import DesignData
 
 def crossover_dataframe(designdata):
     data = {

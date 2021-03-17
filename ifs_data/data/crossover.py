@@ -1,6 +1,7 @@
 from typing import Optional
 
 
+#@attr.s(slots=True)
 class Crossover(object):
     __slots__ = ["typ", "scaff_full_type", "coordinate",
                  "h", "p", "orientation", "bases", "strand_typ"]

@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import IO
 from datetime import date
 
-from ..core.utils import (ignored, get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES,
+from ..core.utils import (get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES,
                           scaffold_dict_len, scaffold_dict_name, scaffold_dict_circ, scaffold_dict_gc)
 from ..core.designData import DesignData
-from ..core.compute_data import Compute
+from ..database.compute_data import Compute
 
 
 logger = logging.getLogger(__name__)
