@@ -215,7 +215,7 @@ def create_database():
 
             # try:
             designdata = Design(
-                json=json, name=design_name, seq=design_seq)
+                json=json, name=design_name, seq=design_seq, circ_scaffold=True)
             # except Exception as e:
             #    e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
             #    logger.error(e_)

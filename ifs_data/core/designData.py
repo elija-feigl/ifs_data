@@ -17,7 +17,7 @@ from Bio.Seq import Seq
 
 from ..data.crossover import Crossover
 from ..data.nicks import Nick
-from .utils import _hps
+from .utils import _hps, _close_strand
 
 
 @attr.s
@@ -25,6 +25,7 @@ class Design(object):
     json: str = attr.ib()
     name: str = attr.ib()
     seq: str = attr.ib()
+    circ_scaffold: bool = attr.ib(default=True)
 
     def __attrs_post_init__(self):
 
@@ -89,7 +90,12 @@ class Design(object):
         return [strand for strand in self.strands if not strand.is_scaffold]
 
     def _create_scaffolds(self) -> List[Strand]:
-        return [strand for strand in self.strands if strand.is_scaffold]
+        """ regular cadnano designs have a linear scaffold to indicate sequence start even for circular scaffolds"""
+        scaffolds = [strand for strand in self.strands if strand.is_scaffold]
+        if self.circ_scaffold:
+            for strand in scaffolds:
+                _close_strand(strand)
+        return scaffolds
 
     def _create_hps(self) -> Dict[Tuple[int, int, bool], Base]:
         """create a dictionary from cadnano bases positions to bases."""
@@ -223,12 +229,7 @@ class Design(object):
     ###########################################################################
     # data - crossover
 
-    def _close_strand(self, strand: Strand) -> None:
-        """ closes a given strand, making it a loop."""
-        start = strand.tour[0]
-        end = strand.tour[-1]
-        start.up, end.down = end, start
-        self.dna_structure.strands[start.strand].is_circular = True
+
 
     def _create_full_crossover_list(self):
         return [Crossover('full', co, self.helices) for co in self._full_co_tuples]
@@ -254,6 +255,8 @@ class Design(object):
 
     def _create_all_crossover_list(self):
         return self.half_crossovers + self.endloops + self.full_crossovers
+
+
 
     def _full_crossovers_assign_type(self):
         """[assign type to full crossover: position of the full scaffold crossover depending on
@@ -305,10 +308,7 @@ class Design(object):
         """
         all_co_tuples = set()
 
-        # NOTE: closing the scaffold
-        for strand in self.strands:
-            if strand.is_scaffold:
-                self._close_strand(strand)
+
 
         for strand in self.strands:
             for base in strand.tour:

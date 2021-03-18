@@ -1,12 +1,11 @@
 import numpy as np
-import attr
 from pathlib import Path
 import contextlib
 
 from typing import Tuple
 
 from nanodesign.data.base import DnaBase as Base
-
+from nanodesign.data.strand import DnaStrand as Strand
 
 EXC_TXT = "______________| Folder: {}\n     | Exception: {}"
 GEL_PROPERTIES = ["user", "project", "design_name", "date", "tem_verified",
@@ -93,3 +92,11 @@ def get_full_scaff_co_typ_stat(design):
 
 def _hps(base: Base) -> Tuple[int, int, bool]:
     return (base.h, base.p, base.is_scaf)
+
+
+def _close_strand(strand: Strand) -> None:
+    """ closes a given strand, making it a loop."""
+    start = strand.tour[0]
+    end = strand.tour[-1]
+    start.up, end.down = end, start
+    strand.is_circular = True
