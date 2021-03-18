@@ -3,6 +3,10 @@ import attr
 from pathlib import Path
 import contextlib
 
+from typing import Tuple
+
+from nanodesign.data.base import DnaBase as Base
+
 
 EXC_TXT = "______________| Folder: {}\n     | Exception: {}"
 GEL_PROPERTIES = ["user", "project", "design_name", "date", "tem_verified",
@@ -85,3 +89,7 @@ def get_full_scaff_co_typ_stat(design):
             elif full.scaff_full_type == 3:
                 data['full_scaf_co_type_3'] += 1
     return data
+
+
+def _hps(base: Base) -> Tuple[int, int, bool]:
+    return (base.h, base.p, base.is_scaf)

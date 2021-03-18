@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3
-
 import numpy as np
 import logging
 import itertools
@@ -13,15 +10,17 @@ import nanodesign as nd
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase as Base
 from nanodesign.data.strand import DnaStrand as Strand
-from Bio.SeqUtils import MeltingTemp  # compute melting temperatures
+
+from Bio.SeqUtils import MeltingTemp
 from Bio.Seq import Seq
 
 from ..data.crossover import Crossover
 from ..data.nicks import Nick
+from .utils import _hps
 
 
 @attr.s
-class DesignData(object):
+class Design(object):
     json: str = attr.ib()
     name: str = attr.ib()
     seq: str = attr.ib()
@@ -31,19 +30,20 @@ class DesignData(object):
         self.logger = logging.getLogger(__name__)
         logging.getLogger("nanodesign").setLevel(logging.WARNING)
 
-        self.dna_structure, self.dna_structure_skips = self.init_design()
+        self.dna_structure = self.init_design()
 
         # strand, base
         self.strands: list = self.dna_structure.strands
         self.staples = self._get_staples()
-        self.hps_base, self.hps_base_skips = self._init_hps(), self._init_hps_skips()
-        self.Dhp_skips = {key: value for key, value in self.hps_base_skips.items(
-        ) if self.hps_base.get(key) is None}
-        self.scaf_bases = self._get_all_scaf_bases()
+        self.scaffolds = self._get_scaffolds()
+        self.lattice = self._init_lattice()
+
+        self.hps_base = self._init_hps()
+        self.hps_deletions, self.hps_insertions = self._init_hps_modifications()
 
         # helix
         self.helices = self.dna_structure.structure_helices_map
-        self.staple_helix_dict = self._get_helix_data()
+        self.staple_helix_dict = self._init_helix_data()
 
         # domain
         self.domain_data = {
@@ -53,10 +53,7 @@ class DesignData(object):
         self.n_staples_domains = {staple: len(
             self.domain_data[staple]) for staple in self.domain_data.keys()}
         self.long_domains = self.get_staples_with_long_domains()
-        self.staple_domains_melt_t = self.get_staple_domains_melt_t()
-        # NOTE: dictionary of staples and maximum melting temp of domains for each staple
-        self.max_staple_melt_t = {key: max(value) for (
-            key, value) in self.staple_domains_melt_t.items()}
+        self.max_staple_melt_t = self._init_staple_max_melt_T()
 
         # crossover
         self._all_co_sets = self._get_all_connections()
@@ -71,19 +68,17 @@ class DesignData(object):
         self._full_crossovers_assign_type()
         self.stacks = self.get_stacks()
 
-    def init_design(self):
+###############################################################################
+    # setup
+
+    def init_design(self) -> Tuple:
         converter = Converter()
-
-        converter.read_cadnano_file(self.json, None, self.seq)
-        converter.dna_structure.compute_aux_data()
-        dna_structure_skip = converter.dna_structure
-
         converter.modify = True
         converter.read_cadnano_file(self.json, None, self.seq)
         converter.dna_structure.compute_aux_data()
         dna_structure = converter.dna_structure
 
-        return dna_structure, dna_structure_skip
+        return dna_structure
 
     def _close_strand(self, strand: Strand) -> None:
         """ closes a given strand, making it a loop."""
@@ -95,70 +90,68 @@ class DesignData(object):
     def _get_staples(self) -> List[Strand]:
         return [strand for strand in self.strands if not strand.is_scaffold]
 
+    def _get_scaffolds(self) -> List[Strand]:
+        return [strand for strand in self.strands if strand.is_scaffold]
+
     def _init_hps(self) -> Dict[Tuple[int, int, bool], Base]:
-        """create a dictionary of bases positions and the bases itself for all bases in the structure excluding the skips
-        """
-        hps_base = dict()
-        for strand in self.dna_structure.strands:
-            hps_base.update({(base.h, base.p, base.is_scaf): base for base in strand.tour})
-        return hps_base
+        """create a dictionary from cadnano bases positions to bases."""
+        return {_hps(base): base for strand in self.strands for base in strand.tour}
 
-    def _init_hps_skips(self) -> Dict[Tuple[int, int, bool], Base]:
-        """create a dictionary of bases positions and the bases itself for all bases in the structure including the skips
-        """
-        hps_base_skips = dict()
-        for strand in self.dna_structure_skips.strands:
-            hps_base_skips.update(
-                {(base.h, base.p, base.is_scaf): base for base in strand.tour})
-        return hps_base_skips
+    def _init_hps_modifications(self):
+        """ create a list of all modified cadnano bases positions."""
+        # TODO: implement without reusing converter
+        converter = Converter()
+        converter.modify = False
+        converter.read_cadnano_file(self.json, None, self.seq)
+        converter.dna_structure.compute_aux_data()
+        dna_structure_del_ins = converter.dna_structure
 
-    def _get_neighbor_from_hps(self, h: int, p: int, is_scaffold: bool, dir: int = 1) -> Base:
-        """get the base object from its coordination: (h, p is_scaffold) into given direction dir (default: {1})
-        """
-        if (h, p, is_scaffold) in self.Dhp_skips.keys():
+        hps_deletions = list()
+        hps_insertions = list()
+        for strand in dna_structure_del_ins.strands:
+            for base in strand.tour:
+                if base.num_insertions != 0:
+                    hps_insertions.append(_hps(base))
+                elif base.num_deletions != 0:
+                    hps_deletions.append(_hps(base))
+        return hps_deletions, hps_insertions
+
+    def _init_lattice(self) -> str:
+        is_square = (type(self.dna_structure.lattice)
+                     == nd.data.lattice.SquareLattice)
+        return "square" if is_square else "honeycomb"
+
+    def _init_helix_data(self) -> Dict[Strand, Set[int]]:
+        """ creates a dictionary with a set of helices that it passes through for each staple"""
+        return {staple: {base.h for base in staple.tour} for staple in self.staples}
+
+###############################################################################
+    # navigation
+
+    def _get_neighbor_from_hps(self, h: int, p: int, s: bool, dir: int = 1) -> Base:
+        """ get the base object from its coordination: (h, p is_scaffold)
+            jumps deletions into given direction dir (default: {1})"""
+        while (h, p, s) in self.hps_deletions:
             p += np.sign(dir)
-        return self.hps_base.get((h, p, is_scaffold), None)
+        return self.hps_base.get((h, p, s), None)
 
     def get_base_plus_minus(self, base: Base) -> Tuple[Base, Base]:
-        """ given a base, it returns the neighbour bases
-        """
+        """ given a base, it returns the neighbour bases."""
         base_plus = self._get_neighbor_from_hps(
             base.h, base.p + 1, base.is_scaf)
         base_minus = self._get_neighbor_from_hps(
             base.h, base.p - 1, base.is_scaf, dir=-1)
         return base_plus, base_minus
 
-    def get_lattice_type(self) -> str:
-        if type(self.dna_structure.lattice) == nd.data.lattice.SquareLattice:
-            return "Square"
-        else:
-            return "Honeycomb"
 
-    def get_dimension(self) -> Tuple[int, int, int]:
-        """gets the dimension of the structure as columns, rows, and position (min-max)
-            NOTE: these values are wrong for multidomain designs
-        """
-
-        lattice_cols = [helix.lattice_col for helix in self.helices.values()]
-        lattice_rows = [helix.lattice_row for helix in self.helices.values()]
-        base_pos = [base.p for base in self.scaf_bases]
-
-        columns = max(lattice_cols) - min(lattice_cols) + 1
-        rows = max(lattice_rows) - min(lattice_rows) + 1
-        bases = max(base_pos) - min(base_pos) + 1
-        return (columns, rows, bases)
-
-    def _get_all_scaf_bases(self) -> List[Base]:
-        return [base for strand in self.strands for base in strand.tour if strand.is_scaffold]
+###############################################################################
+    # data - staple
 
     def get_staples_length(self) -> List[int]:
         """creates a list of the length of each staple"""
-        return [len([base for base in staple.tour]) for staple in self.staples]
+        return [len(staple.tour) for staple in self.staples]
 
-    def get_staple_domains_melt_t(self) -> Dict[Strand, List[float]]:
-        """ list of domain melting temperatures for each staple
-        """
-        # TODO: cleanup
+    def _init_staple_max_melt_T(self):
         staple_domains_melt_t = dict()
         for staple, domains in self.domain_data.items():
             for domain in domains:
@@ -172,22 +165,24 @@ class DesignData(object):
                     else:
                         staple_domains_melt_t.setdefault(staple, []).append(MeltingTemp.Tm_Wallace(
                             Seq(domain.sequence)))
-        return staple_domains_melt_t
+        max_staple_melt_t = {key: max(value) for (
+            key, value) in staple_domains_melt_t.items()}
+        return max_staple_melt_t
 
     def get_alpha_value(self) -> Dict[int, float]:
         """ alpha value : The ratio of number of staples having doamins with melting
             temperature higher than critical temperature to the number of all staples in the structure]
         """
-        T_crit = {40: int, 55: int, 70: int}
-
-        def calculate(max_staple_melt_t, T_crit):
+        def calculate(max_Ts, T_crit):
             """ calculates alpha value for a given critical temperature
             """
-            maxT_staple_domains = list(max_staple_melt_t.values())
-            n_domains_critical = [
-                True for T in maxT_staple_domains if T >= T_crit]
+            maxT_staple_domains = list(max_Ts.values())
             n_domains_total = len(maxT_staple_domains)
-            return sum(n_domains_critical) / n_domains_total
+            gen_domains_critical = (
+                1 for T in maxT_staple_domains if T >= T_crit)
+            return sum(gen_domains_critical) / n_domains_total
+
+        T_crit = {40: int, 55: int, 70: int}
 
         alpha_values = {T: calculate(self.max_staple_melt_t, T)
                         for T in T_crit}
@@ -230,10 +225,8 @@ class DesignData(object):
                 [domain for domain in domains if (domain not in domain_unpaired) and (len(domain.base_list) < 5)])
         return data
 
-    def _get_helix_data(self) -> Dict[Strand, Set[int]]:
-        """ creates a dictionary with a set of helices that it passes through for each staple
-        """
-        return {staple: {base.h for base in staple.tour} for staple in self.staples}
+    ###########################################################################
+    # data - helix
 
     def get_num_staple_helix(self) -> List[int]:
         return [len(helix_ids) for helix_ids in self.staple_helix_dict.values()]
@@ -259,6 +252,9 @@ class DesignData(object):
             if base_minus in last_bases:
                 nicks.append(create_nick(base, base_minus))
         return nicks
+
+    ###########################################################################
+    # data - crossover
 
     def _create_full_crossover_list(self):
         return [Crossover('full', co, self.helices) for co in self._full_co_tuples]
@@ -295,7 +291,7 @@ class DesignData(object):
                 # find closest crossover
                 # TODO: change to possibe staple co!!! or even just check p
                 for co in self.all_crossovers:
-                    if co.strand_typ == 'staple':
+                    if co.strand_typ == "staple":
 
                         if co.h == full.h:
                             sub = (mean(full.p) - mean(co.p))
@@ -308,7 +304,7 @@ class DesignData(object):
                     continue
 
                 # calculate type
-                if self.get_lattice_type() == 'Square':
+                if self.lattice == "quare":
                     mod = sub_new % 32
 
                     if 0 <= mod <= 11:
@@ -450,21 +446,6 @@ class DesignData(object):
 
         return data
 
-    def get_insertion_deletion_density(self):
-        data = {"del_density": 0,
-                "ins_density": 0}
-        base_ins = 0
-        for strand in self.dna_structure_skips.strands:
-            for base in strand.tour:
-                if base.num_insertions != 0:
-                    base_ins += 1
-
-        data["del_density"] = len(
-            self.Dhp_skips) / len(self.scaf_bases)
-        data["ins_density"] = base_ins / len(self.scaf_bases)
-
-        return data
-
     def get_stacks(self):
         same_pos = dict()
         stacks = dict()
@@ -473,13 +454,13 @@ class DesignData(object):
         for full_coupled in itertools.combinations(self.full_crossovers, 2):
             if len(full_coupled[0].p) >= 3:
                 co_1_pos = (tuple(full_coupled[0].p)[
-                            0], tuple(full_coupled[0].p)[-1])
+                    0], tuple(full_coupled[0].p)[-1])
             else:
                 co_1_pos = tuple(full_coupled[0].p)
 
             if len(full_coupled[1].p) >= 3:
                 co_2_pos = (tuple(full_coupled[1].p)[
-                            0], tuple(full_coupled[1].p)[-1])
+                    0], tuple(full_coupled[1].p)[-1])
             else:
                 co_2_pos = tuple(full_coupled[1].p)
 
@@ -518,20 +499,22 @@ class DesignData(object):
         return stacks
 
     def get_stacks_lengths(self):
-        return [(len(stack) - 1) for stacks in self.stacks.values() for stack in stacks]
+        return [(len(s) - 1) for stacks in self.stacks.values() for s in stacks]
 
     def get_co_density(self):
         """ calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)
             NOTE: the values for number of possible_co and co_desity are not exact but close to the true value
         """
         # TODO: possible_ co numbers are not exactly correct
-        def is_ds(pos, hid):
-            is_sc = (hid, pos, True) in self.hps_base_skips
-            is_st = (hid, pos, False) in self.hps_base_skips
-            # (hid, pos) in self.skips (note: list of (h,p) for all skips)
-            is_skip = False
+        # TODO: what does it do?
 
-            return ((is_sc or is_st) or is_skip)
+        def is_ds(pos, hid):
+            is_sc = (hid, pos, True) in self.hps_deletions
+            is_st = (hid, pos, False) in self.hps_deletions
+            # (hid, pos) in self.deletions (note: list of (h,p) for all deletions)
+            is_deletion = False
+
+            return ((is_sc or is_st) or is_deletion)
 
         def cleanup_co(co_list):
             n_ends = 0
@@ -580,7 +563,7 @@ class DesignData(object):
                                "staple": {"co": 0, "co_h": 0, "co_v": 0}
                                }
         # part 1: number of possible crossovers
-        helices = self.dna_structure_skips.structure_helices_map.values()
+        helices = self.dna_structure.structure_helices_map.values()
 
         for helix in helices:
             helix_row = helix.lattice_row
@@ -600,7 +583,8 @@ class DesignData(object):
                                                   and (co[1] in neighbour_bases(strand, co[0])))]
 
                     end, co = cleanup_co(sorted(x))
-                    # TODO: devision by two is assumed for counting each possible_co two times for a helix and its neighbour
+                    # TODO: devision by two is assumed for counting each possible_co
+                    # two times for a helix and its neighbour
 
                     possible_crossovers[strand]["co"] += co // 2
                     possible_crossovers[strand]["co_" + typ] += co // 2
@@ -634,6 +618,39 @@ class DesignData(object):
                     base.across in first_bases) or (base.across in last_bases)}
 
         return blunt_ends
+
+    ###########################################################################
+    # getter for compute
+    # data - general
+
+    def get_dimension(self) -> Tuple[int, int, int]:
+        """gets the dimension of the structure as columns, rows, and position (min-max)
+            NOTE: these values are wrong for multidomain designs
+        """
+        helices = self.helices.values()
+
+        min_cols = min(helices, key=lambda h: h.lattice_col)
+        max_cols = max(helices, key=lambda h: h.lattice_col)
+        columns = max_cols - min_cols + 1
+
+        min_rows = min(helices, key=lambda h: h.lattice_row)
+        max_rows = max(helices, key=lambda h: h.lattice_row)
+        rows = max_rows - min_rows + 1
+
+        min_base = min(helices, key=lambda h: h.min_scaffold_pos)
+        max_base = max(helices, key=lambda h: h.max_scaffold_pos)
+        bases = max_base - min_base + 1
+
+        return (columns, rows, bases)
+
+    def get_insertion_deletion_density(self):
+        scaffolds_length = sum(len(s.tour) for s in self.scaffolds)
+        data = {"del_density": len(self.hps_deletions) / scaffolds_length,
+                "ins_density": len(self.hps_insertions) / scaffolds_length
+                }
+        return data
+
+    # data
 
     def get_loops(self):
         loops = list()

@@ -1,52 +1,57 @@
 import attr
 import logging
 
-from .utils import get_statistics, get_full_scaff_co_typ_stat
-from .designData import DesignData
+from ..core.utils import get_statistics, get_full_scaff_co_typ_stat
+from ..core.designData import Design
 
 
 @attr.s
-class Compute(object):
+class DesignStats(object):
+    design: Design = attr.ib()
 
     logger = logging.getLogger(__name__)
 
-    def compute_data(self, designdata: DesignData) -> None:
+    def compute_data(self) -> None:
+        design = self.design
         data = {}
-        data["name"] = designdata.name
-        data["lattice_type"] = designdata.get_lattice_type()
-        data["dim_x"], data["dim_y"], data["dim_z"] = designdata.get_dimension()
-        data['alpha_value'] = designdata.get_alpha_value()
-        data["n_helices"] = len(designdata.dna_structure.structure_helices_map)
-        data["n_skips"] = len(designdata.Dhp_skips)
-        data["n_nicks"] = len(designdata.get_nicks())
-        data["n_stacks"] = len(designdata.get_stacks_lengths())
-        data["stacks_length"] = designdata.get_stacks_lengths()
-        data["loops_length"] = designdata.get_loops()
-        data.update(designdata.get_insertion_deletion_density())
-        data["n_bluntends"] = len(designdata.get_blunt_ends())
+        data["name"] = design.name
+        data["lattice_type"] = design.lattice
+        data["dim_x"], data["dim_y"], data["dim_z"] = design.get_dimension()
+        data['alpha_value'] = design.get_alpha_value()
+        data["n_helices"] = len(design.helices.keys())
+        data["n_deletions"] = len(design.hps_deletions)
+        data["n_insertions"] = len(design.hps_insertions)
+        data.update(design.get_insertion_deletion_density())
+
+        data["n_nicks"] = len(design.get_nicks())
+        data["n_stacks"] = len(design.get_stacks_lengths())
+        data["stacks_length"] = design.get_stacks_lengths()
+        data["loops_length"] = design.get_loops()
+
+        data["n_bluntends"] = len(design.get_blunt_ends())
 
         # staple stats
-        data["n_staples"] = len(designdata.staples)
-        data["staples_length"] = designdata.get_staples_length()
-        data["helices_staples_pass"] = designdata.get_num_staple_helix()
+        data["n_staples"] = len(design.staples)
+        data["staples_length"] = design.get_staples_length()
+        data["helices_staples_pass"] = design.get_num_staple_helix()
 
         # domains
-        data["n_staples_domains"] = list(designdata.n_staples_domains.values())
-        data["long_domains"] = list(designdata.long_domains.values())
-        data.update(designdata.divide_domain_lengths())
+        data["n_staples_domains"] = list(design.n_staples_domains.values())
+        data["long_domains"] = list(design.long_domains.values())
+        data.update(design.divide_domain_lengths())
         data["staple_domain_melt_T"] = list(
-            designdata.max_staple_melt_t.values())
+            design.max_staple_melt_t.values())
 
         # crossovers
-        data["co_set"] = designdata.classify_crossovers()
-        data.update(get_full_scaff_co_typ_stat(designdata))
-        data["co_possible"], data["co_density"] = designdata.get_co_density()
+        data["co_set"] = design.classify_crossovers()
+        data.update(get_full_scaff_co_typ_stat(design))
+        data["co_possible"], data["co_density"] = design.get_co_density()
 
-        designdata.data = data
+        self.data = data
 
-    def prep_data_for_export(self, designdata) -> dict:
+    def prep_data_for_export(self) -> dict:
         export = dict()
-        for name, value in designdata.data.items():
+        for name, value in self.data.items():
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
@@ -73,3 +78,5 @@ class Compute(object):
                 export[name] = value
 
         return export
+
+        

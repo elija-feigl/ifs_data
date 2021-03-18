@@ -44,7 +44,7 @@ When using ifs_data Python Package in published work, please cite the following 
 
 "n_helices": number of helices in the structure.
 
-"n_skips": number of skips in the structure.
+"n_deletions": number of deletions in the structure.
 
 "n_nicks": number of the nicks in the structure.
 
@@ -161,7 +161,7 @@ When using ifs_data Python Package in published work, please cite the following 
 
 "stacks" : number of stacks.
 
-"del_density": number of deletions(skips) divided by number of all bases including the skips.
+"del_density": number of deletions(deletions) divided by number of all bases including the deletions.
 
 "ins_density": number of insertions divided by number of all bases.
 

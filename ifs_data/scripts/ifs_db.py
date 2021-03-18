@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import IO
 from datetime import date
 
+from ..version import get_version
 from ..core.utils import (get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES,
                           scaffold_dict_len, scaffold_dict_name, scaffold_dict_circ, scaffold_dict_gc)
-from ..core.designData import DesignData
-from ..database.compute_data import Compute
+from ..core.designData import Design
+from ..database.compute_data import DesignStats
 
 
 logger = logging.getLogger(__name__)
@@ -213,7 +214,7 @@ def create_database():
             design_seq = mat_data["scaffold_type"].upper()
 
             # try:
-            designdata = DesignData(
+            designdata = Design(
                 json=json, name=design_name, seq=design_seq)
             # except Exception as e:
             #    e_ = "nanodesign    " + EXC_TXT[14:].format(child.name, e)
@@ -221,15 +222,15 @@ def create_database():
             #   raise e
 
             # try:
-            compute = Compute()
-            compute.compute_data(designdata=designdata)
+            compute = DesignStats(design=designdata)
+            compute.compute_data()
             # except Exception as e:
             #    e_ = "designdata    " + EXC_TXT[14:].format(child.name, e)
             #    logger.error(e_)
             #    continue
 
             # try:
-            json_data = compute.prep_data_for_export(designdata=designdata)
+            json_data = compute.prep_data_for_export()
             data = {**mat_data, **json_data}
             # except Exception as e:
             #    e_ = "exportdata    " + EXC_TXT[14:].format(child.name, e)
@@ -247,7 +248,7 @@ def create_database():
             #    e_ = "critical eror   " + EXC_TXT[14:].format(child.name, e)
             #    logger.error(e_)
             #    continue
-    print(exclude_count, " folders skipped")
+    print(exclude_count, " folders deletionped")
 
     df = complete_dataframe(fdb_filepath)
     df.to_csv(fdb_filepath)
