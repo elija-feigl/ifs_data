@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 import contextlib
 
-from typing import Tuple
+from typing import Tuple, Union
 
 from nanodesign.data.base import DnaBase as Base
 from nanodesign.data.strand import DnaStrand as Strand
@@ -14,7 +14,8 @@ GEL_PROPERTIES = ["user", "project", "design_name", "date", "tem_verified",
                   "staining", "mg_concentration", "voltage", "running_time",
                   "cooling"]
 FOLD_PROPERTIES = ["qualityMetric", "bestTscrn", "bestMgscrn", "qualityMetric",
-                   "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]
+                   "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized",
+                   "fractionPocket", "fractionSmear"]
 scaffold_dict_len = {"8064": 8064, "7560": 7560, "cs11": 7560, "cs16": 7560,
                      "cs15": 7560, "2873": 2873, "1317": 1317, "2048": 2057,
                      "7249": 7249, "9072": 9072, "cs12": 7560,
@@ -31,7 +32,6 @@ scaffold_dict_gc = {"8064": 0.44, "7560": 0.42, "cs11": 0.435, "cs16": 0.6,
                     "cs15": 0.58, "2873": 0.5, "1317": 0.51, "2048": 0.51,
                     "7249": 0.42, "9072": 0.49, "cs12": 0.3,
                     "7704": 0.427, "cs17": 0.448, "cs13": 0.34, "4536": 0.49}
-
 
 
 @contextlib.contextmanager
@@ -67,29 +67,6 @@ def get_statistics(data_list, data_name):
                 }
 
 
-def get_full_scaff_co_typ_stat(design):
-    """[numbers of ]
-
-    Returns:
-        [dict]: [data for database; writung to csv]
-    """
-    # TODO: the designprocess data are not consistant
-    data = {
-        'full_scaf_co_type_1': 0,
-        'full_scaf_co_type_2': 0,
-        'full_scaf_co_type_3': 0
-    }
-    for full in design.full_crossovers:
-        if full.strand_typ == 'scaffold':
-            if full.scaff_full_type == 1:
-                data['full_scaf_co_type_1'] += 1
-            elif full.scaff_full_type == 2:
-                data['full_scaf_co_type_2'] += 1
-            elif full.scaff_full_type == 3:
-                data['full_scaf_co_type_3'] += 1
-    return data
-
-
 def _hps(base: Base) -> Tuple[int, int, bool]:
     return (base.h, base.p, base.is_scaf)
 
@@ -100,3 +77,28 @@ def _close_strand(strand: Strand) -> None:
     end = strand.tour[-1]
     start.up, end.down = end, start
     strand.is_circular = True
+
+
+def _check_base_crossover(base: Base) -> Union[Base, bool]:
+    """ Check if there is a crossover to a different helix at the given
+        base.
+        returns base if True else returns False
+    """
+    if base.down is None:
+        return False
+    if base.down.h != base.h:
+        return base.down
+
+    if base.up is None:
+        return False
+    if base.up.h != base.h:
+        return base.up
+    return False
+
+
+def _change_strand_type(strand: Strand):
+    """switch strand type. Propagates to bases of strand."""
+    typ = strand.is_scaffold
+    strand.is_scaffold = not typ
+    for base in strand.tour:
+        base.is_scaf = not typ

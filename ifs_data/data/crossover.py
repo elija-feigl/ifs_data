@@ -1,70 +1,100 @@
-from typing import Optional
+import attr
+from typing import Set, Optional
+import numpy as np
+# import logging
+
+from nanodesign.data.base import DnaBase as Base
 
 
-#@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
+class Connection(object):
+    """ interhelical connection of two bases """
+    base1: Base = attr.ib()
+    base2: Base = attr.ib()
+
+    def get_bases(self) -> Set[Base]:
+        return {self.base1, self.base2}
+
+
+@attr.s(slots=True)
 class Crossover(object):
-    __slots__ = ["typ", "scaff_full_type", "coordinate",
-                 "h", "p", "orientation", "bases", "strand_typ"]
+    """ Dna Origami Crossover object
+        composed of up to two connections, hence up to 4 bases
+    """
+    connection1: Connection = attr.ib()
+    connection2: Optional[Connection] = attr.ib(default=None)
+    is_end: bool = attr.ib(default=False)
+    is_scaffold: bool = attr.ib(default=False)
+    scaff_full_type: int = attr.ib(default=-1)
+    typ: str = attr.ib(default="")
+    orientation: str = attr.ib(default="")
 
-    def __init__(self, typ, con_tuple, helices):
-        """
-            Initialize a Crossover object.
+    def __attrs_post_init__(self):
+        self.is_scaffold = self.connection1.base1.is_scaf
+        self.typ = self._get_typ()
 
-            Arguments:
-                typ (str): type of crossover (full, half, endloop).
-                con_tuple tuple(tuple(base,base), optinal(tuple(base,base)))
-
-                strand_typ (bool): is a crossover for a (scaffold = True) or a (staple = False).
-                is_vertical (bool): indicates the orientation of the crossover
-                                    in the DNA origami structure.[vertical = True] & [horizontal = False]
-                coordinates (list): the position and helix (base.h, base.p)
-                                    number of each base that is connected in the crossover.
-                bases (tuple): the bases that are connected togather via the crossover.
-
-        """
-        self.typ: str = typ
-        self.scaff_full_type: Optional[int] = None
-        self.create_crossover(con_tuple, helices)
-
-    def create_crossover(self, con_tuple, helices):
-        """[this function creats crossover objects with attributes which are available in crossover class]
-
-        Arguments:
-            typ {[str]} -- [crossover type: full, half, endloop]
-            con_tuple  tuple(tuple(base,base), optinal(tuple(base,base))) -- [a resemblance of a crossover made of a
-                            tuple consisting two basis which indicates a crossover]
-
-        Returns:
-            crossover Object -- [description]
-        """
-        tmp_bases = list([None, None])
-        for i, con in enumerate(con_tuple):
-            if con is None:
-                continue
-            tmp_bases[i] = con if con[0].h < con[1].h else con[::-1]
-        if con_tuple[1] is None:
-            self.bases = tuple(tmp_bases)
+    def _get_typ(self):
+        if self.is_end:
+            return "end"
+        elif self.connection2 is None:
+            return "half"
         else:
-            self.bases = tuple(
-                tmp_bases) if tmp_bases[0][0].p < tmp_bases[1][0].p else tuple(tmp_bases[::-1])
+            return "full"
 
-        first_base = self.bases[0][0]
-        self.strand_typ = 'scaffold' if first_base.is_scaf else 'staple'
+    def get_bases(self) -> Set[Base]:
+        # TODO: test if it is faster to initialize self.bases instead of external getter
+        bases = self.connection1.get_bases()
+        if self.connection2 is not None:
+            bases |= self.connection1.get_bases()
+        return bases
 
-        self.h = set()
-        self.p = set()
-        self.coordinate = list()
-
-        for con in self.bases:
-            if con is None:
-                continue
-            for base in con:
-                self.coordinate.append((base.h, base.p))
-                self.p.add(base.p)
-                self.h.add(base.h)
-
+    def set_orientation(self, helices):
+        con = self.connection1
         is_vertical = (
-            helices[self.bases[0][0].h].lattice_row
-            == helices[self.bases[0][1].h].lattice_row
+            helices[con.base1.h].lattice_row
+            == helices[con.base1.h].lattice_row
         )
         self.orientation = "vertical" if is_vertical else "horizontal"
+
+    def set_scaffold_subtyp(self, helices, lattice):
+        if self.is_scaffold and self.typ == "full":
+            self.scaff_full_type = self._get_scaffold_subtyp(helices, lattice)
+
+    def _get_scaffold_subtyp(self, helices, lattice):
+        """[assign type to full crossover: position of the full scaffold crossover depending on
+        the position suggested by cadnano]
+        """
+
+        helix1 = helices[self.connection1.base1.h]
+        helix2 = helices[self.connection1.base2.h]
+        co_p = (self.connection1.base1.p + self.connection2.base1.p) // 2
+
+        # NOTE: nanodesign.crossover is equivalent to this.Connection
+        possible_ps = [
+            p for (helix, p, _) in helix1.possible_staple_crossovers if helix is helix2]
+
+        # find closest possible Connection
+        sub = np.Infinity
+        for possible in possible_ps:
+            sub_new = co_p - possible
+            if abs(sub_new) <= abs(sub):
+                sub = sub_new
+
+        if sub is np.Infinity:
+            return 0
+
+        # calculate lattice depended type
+        if lattice == "square":
+            mod = sub % 32
+            if 0 <= mod <= 11:
+                return 1
+            elif 21 <= mod < 32:
+                return 3
+            else:
+                return 2
+        else:
+            mod = sub % 21
+            if 0 <= mod <= 11:
+                return 1
+            else:
+                return 3
