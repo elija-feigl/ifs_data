@@ -2,13 +2,16 @@ import attr
 import logging
 import numpy as np
 
-from typing import List, Dict, Tuple, Set, Any
+from typing import List, Dict, Tuple, Any
+from operator import attrgetter
 
-from nanodesign.data.base import DnaBase as Base
-from nanodesign.data.strand import DnaStrand as Strand
-
-from ..core.utils import get_statistics
+from ..core.utils import get_statistics, n_bases, save_division
 from ..core.designData import Design
+
+# TODO: classmethod etc
+STRAND_TYPES = ["scaffold", "staple"]
+CO_TYPES = ["full", "half", "end"]
+ORIENTS = ["v", "h"]
 
 
 @attr.s
@@ -23,16 +26,17 @@ class DesignStats(object):
         data["name"] = design.name
         data["lattice_type"] = design.lattice
         data["dim_x"], data["dim_y"], data["dim_z"] = self.get_dimension()
-        data['alpha_value'] = self.get_alpha_value()
+        data['alpha_value'] = self.get_alpha_values()
         data["n_helices"] = self.get_n_helices()
-        data["n_deletions"] = len(design.hps_deletions) // 2
-        data["n_insertions"] = len(design.hps_insertions) // 2
-        data["insertions_denisty"], data["deletion_denisty"] = self.get_insertion_deletion_density()
 
         data["n_nicks"] = self.get_number_nicks()
         data["n_stacks"] = len(self.get_stacks_lengths())
         data["stacks_length"] = self.get_stacks_lengths()
         data["loops_length"] = self.get_loops()
+
+        data["n_insertions"] = len(design.hps_insertions) // 2
+        data["n_deletions"] = len(design.hps_deletions) // 2
+        data["insertions_denisty"], data["deletion_denisty"] = self.get_insertion_deletion_density()
 
         data["n_bluntends"] = len(self.get_blunt_ends())
 
@@ -43,40 +47,15 @@ class DesignStats(object):
 
         # domains
         data["n_staples_domains"] = self.get_n_staples_domains()
-        data["long_domains"] = list(
-            self.get_staples_with_long_domains().values())
-        data.update(self.divide_domain_lengths())
-        data["staple_domain_melt_T"] = list(
-            design.max_staple_melt_t.values())
+        data.update(self.get_long_domains())
+        data["co_rule_violation"] = self.get_co_rule_violation()
+        data["staple_domain_melt_T"] = self.get_staple_domain_melt_T()
 
         # crossovers
-        data["co_set"] = self.classify_crossovers()
         data.update(self.get_full_scaff_co_typ_stat())
-        data["co_possible"], data["co_density"] = self.get_co_density()
+        data["co_set"], data["co_possible"], data["co_density"] = self.get_co_density()
 
         self.data = data
-
-    def get_full_scaff_co_typ_stat(self):
-        """[numbers of ]
-
-        Returns:
-            [dict]: [data for database; writung to csv]
-        """
-        # TODO: the designprocess data are not consistant
-        data = {
-            'full_scaf_co_type_1': 0,
-            'full_scaf_co_type_2': 0,
-            'full_scaf_co_type_3': 0
-        }
-        for full in (co for co in self.design.crossovers if co.typ == "full"):
-            if full.is_scaffold == 'scaffold':
-                if full.scaff_full_type == 1:
-                    data['full_scaf_co_type_1'] += 1
-                elif full.scaff_full_type == 2:
-                    data['full_scaf_co_type_2'] += 1
-                elif full.scaff_full_type == 3:
-                    data['full_scaf_co_type_3'] += 1
-        return data
 
     def prep_data_for_export(self) -> dict:
         export = dict()
@@ -85,14 +64,13 @@ class DesignStats(object):
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
                         if (strand_name == 'scaffold') and (typ in ['half', 'half_v', 'half_h']):
-                            pass
-                        else:
-                            export["{}_{}_{}".format(
-                                name, strand_name, typ)] = n_co
+                            self.logger.debug(
+                                "statistics of design reveal scaffold half crossover.")
+                        export["{}_{}_{}".format(
+                            name, strand_name, typ)] = n_co
 
             elif name in ["staples_length", "helices_staples_pass", "n_staples_domains",
                           "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length"]:
-
                 stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
@@ -101,71 +79,53 @@ class DesignStats(object):
                 for temp, alpha_value in value.items():
                     export[f"{name}_{temp}"] = alpha_value
 
-            elif name in ["2_long_domains", "1_long_domains", "0_long_domains", "co_rule_violation"]:
+            elif name in ["co_rule_violation"]:
                 export[name] = len(value)
             else:
                 export[name] = value
 
         return export
 
-    def get_alpha_value(self) -> Dict[int, float]:
+    def get_alpha_values(self, T_crit={40: int, 55: int, 70: int}) -> Dict[int, float]:
         """ alpha value : The ratio of number of staples having doamins with melting
             temperature higher than critical temperature to the number of all staples in the structure]
         """
-        def calculate(max_Ts, T_crit):
-            """ calculates alpha value for a given critical temperature
-            """
-            maxT_staple_domains = list(max_Ts.values())
-            n_domains_total = len(maxT_staple_domains)
-            gen_domains_critical = (
-                1 for T in maxT_staple_domains if T >= T_crit)
-            return sum(gen_domains_critical) / n_domains_total
+        def alpha(max_Ts, T_thres):
+            """ calculates alpha value for a given critical temperature."""
+            domains_critical = sum(1 for T in max_Ts if T >= T_thres)
+            return domains_critical / len(max_Ts)
 
-        T_crit = {40: int, 55: int, 70: int}
-
-        alpha_values = {T: calculate(self.design.max_staple_melt_t, T)
-                        for T in T_crit}
+        domain_max_T = list(self.design.max_staple_melt_t.values())
+        alpha_values = {T: alpha(domain_max_T, T) for T in T_crit}
         return alpha_values
 
     def get_staples_length(self) -> List[int]:
-        """creates a list of the length of each staple"""
+        """ creates a list of the length of each staple"""
         return [len(staple.tour) for staple in self.design.staples]
 
     def get_num_staple_helix(self) -> List[int]:
-        # TODO cleanup
         """ creates a dictionary with a set of helices that it passes through for each staple"""
-        staple_helix_dict = {staple: {base.h for base in staple.tour}
-                             for staple in self.design.staples}
-        return [len(helix_ids) for helix_ids in staple_helix_dict.values()]
+        return [len(staple.helix_list) for staple in self.design.staples]
 
     def get_number_nicks(self) -> int:
         return len(self.design.nicks)
 
     def get_n_helices(self, min_bases=20) -> int:
-        helices = [h for h in self.design.helices.values() if (len(
-            h.scaffold_bases) + len(h.scaffold_bases)) > min_bases]
-        return len(helices)
+        return len([h for h in self.design.helices if n_bases(h) > min_bases])
 
     def get_dimension(self, min_bases=20) -> Tuple[int, int, int]:
-        """gets the dimension of the structure as columns, rows, and position (min-max)
+        """ gets the dimension of the structure as columns, rows, and position (min-max)
             NOTE: these values are wrong for multidomain designs
         """
-        helices = [h for h in self.design.helices.values() if (len(
-            h.scaffold_bases) + len(h.scaffold_bases)) > min_bases]
+        def dim_attr(helices, attr: str):
+            min_attr = min(helices, key=attrgetter(attr))
+            max_attr = max(helices, key=attrgetter(attr))
+            return getattr(max_attr, attr) - getattr(min_attr, attr) + 1
 
-        min_cols = min(helices, key=lambda h: h.lattice_col)
-        max_cols = max(helices, key=lambda h: h.lattice_col)
-        columns = max_cols.lattice_col - min_cols.lattice_col + 1
-
-        min_rows = min(helices, key=lambda h: h.lattice_row)
-        max_rows = max(helices, key=lambda h: h.lattice_row)
-        rows = max_rows.lattice_row - min_rows.lattice_row + 1
-
-        min_base = min(helices, key=lambda h: h.min_scaffold_pos)
-        max_base = max(helices, key=lambda h: h.max_scaffold_pos)
-        bases = max_base.max_scaffold_pos - min_base.min_scaffold_pos + 1
-
-        return (columns, rows, bases)
+        helices = [h for h in self.design.helices if n_bases(h) > min_bases]
+        return (dim_attr(helices, "lattice_col"),
+                dim_attr(helices, "lattice_row"),
+                dim_attr(helices, "min_scaffold_pos"))
 
     def get_insertion_deletion_density(self):
         scaffolds_length = sum(len(s.tour) for s in self.design.scaffolds)
@@ -174,205 +134,160 @@ class DesignStats(object):
         return ins_density, del_density
 
     def get_stacks_lengths(self):
+        """ creates a list of the length of each stack."""
         return [(len(s) - 1) for stacks in self.design.stacks.values() for s in stacks]
 
-    def get_n_domains(self):
-        # TODO: cleaunp
-        domain_data = self.design.domain_data
-        n_staples_domains = {staple: len(
-            domain_data[staple]) for staple in domain_data.keys()}
-        return list(n_staples_domains.values())
-
     def get_n_staples_domains(self):
-        # TODO: cleaunp (with previous)
-        domain_data = self.design.domain_data
-        n_staples_domains = {staple: len(
-            domain_data[staple]) for staple in domain_data.keys()}
-        return list(n_staples_domains.values())
+        """ creates a list of the length of each domain of all staples."""
+        return [len(staple.domain_list) for staple in self.design.staples]
 
-    def get_staples_with_long_domains(self) -> Dict[Strand, int]:
+    def get_long_domains(self) -> dict:
+        """ list all long domains per staple
+            count how many staples have either 0,1 or 2 long segments."""
+        def _is_long_(domain):
+            return True if (len(domain.base_list) >= 14) else False
 
-        # TODO: cleanup and move to compute
-        """ computes numbers of long_domains for the each staple
-                long domain are domains with 14 or more bases
-        """
-        domain_data = self.design.domain_data
-        lengths_data = {staple: [len(domain.base_list) for domain in domain]
-                        for staple, domain in domain_data.items()}
-        return {staple: len(list(filter(lambda x: x >= 14, domain_length)))
-                for staple, domain_length in lengths_data.items()}
+        long_domains_staple = list()
+        for staple in self.design.staples:
+            long_domains = [d.id for d in staple.domain_list if _is_long_(d)]
+            long_domains_staple.append(len(long_domains))
 
-    def divide_domain_lengths(self) -> dict:
+        n_long_types = [0, 0, 0]
+        for n_longs in long_domains_staple:
+            n_typ = 2 if n_longs > 2 else n_longs
+            n_long_types[n_typ] += 1
 
-        # TODO: cleanup and move to compute
-        """[divide staples having 0, 1, 2 or more long domains ]
+        return {
+            "long_domains": long_domains_staple,
+            '0_long_domains': n_long_types[0],
+            '1_long_domains': n_long_types[1],
+            '2_long_domains': n_long_types[2],
+        }
 
-        Returns:
-            dict: [
-                2_long_domains: two or more long domains,
-                1_long_domains: having only one long domain,
-                0_long_domains: having no long domain,
-                co_rule_violation: unpaired domains with less than 5 bases]
-        """
-        # TODO: cleanup
-        data = dict()
-        domain_unpaired = list()
-        domain_data = self.design.domain_data
-        long_domains = self.get_staples_with_long_domains()
+    def get_co_rule_violation(self) -> List:
+        """ co_rule_violation: unpaired domains with less than min_length base."""
+        def _violates_co_rules(domain, min_length=5):
+            is_short = True if (len(domain.base_list) < min_length) else False
+            is_ds = (domain.base_list[0].across is None)
+            return is_short and is_ds
 
-        for staple, n_longs in long_domains.items():
-            if n_longs >= 2:
-                data.setdefault("2_long_domains", []).append(staple)
-            elif n_longs == 1:
-                data.setdefault("1_long_domains", []).append(staple)
-            elif n_longs == 0:
-                data.setdefault("0_long_domains", []).append(staple)
+        return [d for staple in self.design.staples
+                for d in staple.domain_list if _violates_co_rules(d)]
 
-        for staple, domains in domain_data.items():
-            domain_unpaired.extend(
-                [domain for domain in domains if domain.base_list[0].across is None])
-
-            data.setdefault("co_rule_violation", []).extend(
-                [domain for domain in domains if (domain not in domain_unpaired) and (len(domain.base_list) < 5)])
-        return data
+    def get_staple_domain_melt_T(self) -> List:
+        return list(self.design.max_staple_melt_t.values())
 
     def get_co_density(self):
-        """ calculate crossover density (number of crossovers is the structure divided by possible crossovers CadNano)
-            NOTE: the values for number of possible_co and co_desity are not exact but close to the true value
-        """
-        # TODO: possible_ co numbers are not exactly correct
-        # TODO: what does it do?
+        """ calculate crossover density (number of crossovers is the structure
+            divided by possible crossovers CadNano)."""
+        def init_co_dict(seperate_types: bool = True):
+            types = CO_TYPES if seperate_types else[]
+            co_dict: Dict[str, Dict[str, int]] = dict()
+            for strand_type in STRAND_TYPES:
+                for typ in types:
+                    for orient in ORIENTS:
+                        keys = [f"co_{orient}", "co"]
+                        if seperate_types:
+                            keys += [f"{typ}_{orient}", f"{typ}"]
+                        for key in keys:
+                            co_dict[strand_type][key] = 0
+            return co_dict
 
-        def is_ds(pos, hid):
-            # NOTE: called super often
-            is_sc = (hid, pos, True) in self.design.hps_deletions
-            is_sc = (hid, pos, True) in self.design.hps_deletions
-            is_st = (hid, pos, False) in self.design.hps_deletions
-            # (hid, pos) in self.deletions (note: list of (h,p) for all deletions)
-            is_deletion = False
-
-            return ((is_sc or is_st) or is_deletion)
-
-        def cleanup_co(co_list):
-            n_ends = 0
-            if not co_list:
+        def count_co(position_list):
+            # NOTE: innaccurate for helices that are not continuous
+            ends = 0
+            n = len(position_list)
+            if n == 0:
                 return 0, 0
-            if len(co_list) == 1:
+            if n == 1:
                 return 1, 0
-            if len(co_list) == 2 and co_list[0] != co_list[1]:
-                return 2, 0
+            if n == 2:
+                if position_list[0] + 1 != position_list[1]:
+                    return 1, 0
+                else:
+                    return 0, 1
 
-            if co_list[0] + 1 != co_list[1]:
-                n_ends += 1
-                co_list = co_list[1:]
-            if co_list[-1] - 1 != co_list[-2]:
-                n_ends += 1
-                co_list = co_list[:-1]
-            # TODO: devision by two is assumed for possible_full_co(two connections)
-            return n_ends, len(co_list) // 2
+            if position_list[0] + 1 != position_list[1]:
+                position_list.pop(0)
+                ends += 1
+            if position_list[-1] - 1 != position_list[-2]:
+                position_list.pop()
+                ends += 1
+            # NOTE: divison by 2 as two connections per crossover (not 100% accurate)
+            return ends, len(position_list) // 2
 
-        def neighbour_bases(strand_typ, helix):
-            """[gives a list of all bases in the neighbouring helix to ckeck if there
-            exist a base in the neighbouring helix to connect to the base that is a possible_co in the main helix]
+        def is_possible(typ, p, helix):
+            """ A base in the neighbouring helix to connect to exists."""
+            bases = getattr(helix, f"{typ}_bases")
+            return any(b.p == p for b in bases)
 
-            Args:
-                strand_typ ([str]): [Scaffold or Staple]
-                helix ([DnaStructureHelix]): [neighbouring helix]
+        def is_oriented(typ, helix, helix2):
+            """ Horizontal connections are in the same row, verticals in same column"""
+            orient = "lattice_row" if typ == 'h' else "lattice_col"
+            return getattr(helix, orient) == getattr(helix2, orient)
 
-            Returns:
-                [list]: [list of all the bases in the neighbouring helix]
+        possible_connections = init_co_dict(seperate_types=False)
+        for helix in self.design.helices:
+            for strand_type in STRAND_TYPES:
+                for orient in ORIENTS:
+                    connections = getattr(
+                        helix, f"possible_{strand_type}_crossovers")
 
-            """
-            if strand_typ == 'scaffold':
-                neighbour_bases = [base.p for base in helix.scaffold_bases]
-            else:
-                neighbour_bases = [base.p for base in helix.staple_bases]
+                    positions = set()
+                    for helix2, p, _ in connections:
+                        is_valid = (is_oriented(orient, helix, helix2)
+                                    and is_possible(strand_type, p, helix2))
+                        if is_valid:
+                            positions.add(p)
 
-            return neighbour_bases
+                    n_end, n_co = count_co(sorted(list(positions)))
 
-        def orientation(typ, helix, helix_row):
-            if typ == 'h':
-                return helix_row == helix.lattice_row
-            else:
-                return helix_row != helix.lattice_row
+                    # NOTE: 2021-03-19: ends will be excluded from co density estimates
+                    n_connections = n_co  # + n_end
+                    possible_connections[strand_type]["co"] += n_connections
+                    possible_connections[strand_type][f"co_{orient}"] += n_connections
 
-        possible_crossovers = {"scaffold": {"co": 0, "co_h": 0, "co_v": 0},
-                               "staple": {"co": 0, "co_h": 0, "co_v": 0}
-                               }
-        # part 1: number of possible crossovers
-        helices = self.design.helices.values()
-
-        for helix in helices:
-            helix_row = helix.lattice_row
-
-            for strand in ["scaffold", "staple"]:
-                for typ in ["v", "h"]:
-
-                    # NOTE: nanodesign crossoevers are actually connections
-                    if strand == "scaffold":
-                        p_co = helix.possible_scaffold_crossovers
-
-                    else:
-                        p_co = helix.possible_staple_crossovers
-
-                    x = [co[1] for co in p_co if (is_ds(pos=co[1], hid=helix.id)
-                                                  and orientation(typ, co[0], helix_row)
-                                                  and (co[1] in neighbour_bases(strand, co[0])))]
-
-                    end, co = cleanup_co(sorted(x))
-                    # TODO: devision by two is assumed for counting each possible_co
-                    # two times for a helix and its neighbour
-
-                    possible_crossovers[strand]["co"] += co // 2
-                    possible_crossovers[strand]["co_" + typ] += co // 2
-                    # possible_crossovers[strand]["end"] += end
+        # NOTE: divison by 2 for counting each connection twice (for each helix)
+        # TODO: is there prettier way?
+        for strand_type in STRAND_TYPES:
+            possible_connections[strand_type]["co"] //= 2
+            for orient in ORIENTS:
+                possible_connections[strand_type][f"co_{orient}"] //= 2
 
         # part2 get actual crossovers
-        set_crossovers = self.classify_crossovers()
+        set_crossovers = init_co_dict()
+        for co in self.design.crossovers:
+            strand_type = "scaffold" if co.is_scaffold else "staple"
+            orient = "h" if co.orientation == "horizontal" else "v"
+            set_crossovers[strand_type][f"{co.typ}_{orient}"] += 1
+            set_crossovers[strand_type][f"{co.typ}"] += 1
+            # NOTE: 2021-03-19: ends will be excluded from co density estimates
+            if co.typ != "end":
+                set_crossovers[strand_type][f"co_{orient}"] += 1
+                set_crossovers[strand_type]["co"] += 1
 
+        # part3 get crossover denisity
         co_density = dict()
-        for strand in ["scaffold", "staple"]:
-            co_density[strand] = dict()
-            for typ, n_possible in possible_crossovers[strand].items():
-                n_set = set_crossovers[strand][typ]
-                if n_possible == 0:
-                    co_density[strand][typ] = 0
-                else:
-                    co_density[strand][typ] = n_set / n_possible
+        for strand_type in STRAND_TYPES:
+            co_density[strand_type] = dict()
+            for key, n_possible in possible_connections[strand_type].items():
+                if "co" in key:
+                    n_set = set_crossovers[strand_type][key]
+                    co_density[strand_type][key] = save_division(
+                        n_set, n_possible)
 
-        return possible_crossovers, co_density
+        return set_crossovers, possible_connections, co_density
 
-    def classify_crossovers(self):
-        data = {"scaffold": dict(), "staple": dict()}
-        types = {"full": [co for co in self.design.crossovers if co.typ == "full"],
-                 "half": [co for co in self.design.crossovers if co.typ == "half"],
-                 "end": [co for co in self.design.crossovers if co.typ == "end"],
-                 }
+    def get_full_scaff_co_typ_stat(self):
+        type_count = [0, 0, 0]
+        for full in (co for co in self.design.crossovers if co.typ == "full" and co.is_scaffold):
+            type_count[full.scaff_full_type-1] += 1
 
-        for typ, crossovers in types.items():
-            co_subsets = {"scaffold": {"": list(), "_h": list(), "_v": list()},
-                          "staple": {"": list(), "_h": list(), "_v": list()}}
-
-            for co in crossovers:
-                strand = "scaffold" if co.is_scaffold == 'scaffold' else "staple"
-                co_subsets[strand][""].append(co)
-                if co.orientation == "horizontal":
-                    co_subsets[strand]["_h"].append(co)
-                else:
-                    co_subsets[strand]["_v"].append(co)
-
-                for s, direction_sets in co_subsets.items():  # scaffold, staple
-                    for dir in direction_sets:  # h, v
-                        len_subset = len(co_subsets[s][dir])
-                        data[s][typ + dir] = len_subset
-
-        for strand in ["scaffold", "staple"]:
-            data[strand]["co"] = data[strand]["half"] + data[strand]["full"]
-            for typ in ["v", "h"]:
-                data[strand][
-                    "co_" + typ] = (data[strand]["half_" + typ] + data[strand]["full_" + typ])
-
-        return data
+        return {
+            'full_scaf_co_type_1': type_count[0],
+            'full_scaf_co_type_2': type_count[1],
+            'full_scaf_co_type_3': type_count[2],
+        }
 
     def get_blunt_ends(self):
         blunt_ends = set()
