@@ -43,6 +43,10 @@ def get_file(logger, folder: Path, rex: str, *exceptions):
         logger.error(e_)
 
 
+def save_division(dividend,  divisor) -> float:
+    return 0. if not divisor else dividend / divisor
+
+
 def get_statistics(data_list, data_name):
     """[summary]
 
@@ -102,3 +106,7 @@ def _change_strand_type(strand: Strand):
     strand.is_scaffold = not typ
     for base in strand.tour:
         base.is_scaf = not typ
+
+
+def n_bases(helix):
+    return len(helix.staple_bases) + len(helix.scaffold_bases)

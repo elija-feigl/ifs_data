@@ -42,7 +42,6 @@ class Crossover(object):
             return "full"
 
     def get_bases(self) -> Set[Base]:
-        # TODO: test if it is faster to initialize self.bases instead of external getter
         bases = self.connection1.get_bases()
         if self.connection2 is not None:
             bases |= self.connection1.get_bases()
@@ -52,7 +51,7 @@ class Crossover(object):
         con = self.connection1
         is_vertical = (
             helices[con.base1.h].lattice_row
-            == helices[con.base1.h].lattice_row
+            == helices[con.base2.h].lattice_row
         )
         self.orientation = "vertical" if is_vertical else "horizontal"
 

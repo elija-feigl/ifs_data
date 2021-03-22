@@ -4,7 +4,7 @@ import itertools
 import attr
 import networkx as nx
 
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, Optional
 from collections import defaultdict
 
 import nanodesign as nd
@@ -58,7 +58,8 @@ class Design(object):
         self.scaffolds = self._create_scaffolds()
         self.staples = self._create_staples()
         self.lattice = self._create_lattice()
-        self.helices = self.dna_structure.structure_helices_map
+        self.helix_maps = self.dna_structure.structure_helices_map
+        self.helices = list(self.dna_structure.structure_helices_map.values())
 
     def _init_topology(self) -> None:
         """ add topological data required for direct access of bases"""
@@ -77,24 +78,23 @@ class Design(object):
                 half crossovers and endloops of one connection
             stacks
         """
-        self._connections = self._create_all_connections()
         self.crossovers = self._create_crossovers()
-
         self.stacks = self._create_stacks()
 
     ###########################################################################
     # attribute creators
-    def _fix_strand_classification(self, scaffold_min_length: int = 500):
+    def _fix_strand_classification(self, scaffold_min_length: int = 500) -> None:
         """scaffolds-strands smaller than scaffold_min_length bases are to be consedered as staples."""
         for strand in self.strands:
             base = strand.tour[0]
-            if strand.is_scaffold and len(strand.tour) < scaffold_min_length:
+            is_false_scaf = (strand.is_scaffold and len(
+                strand.tour) < scaffold_min_length)
+            is_false_staple = (not strand.is_scaffold and len(
+                strand.tour) > scaffold_min_length)
+            if is_false_scaf or is_false_staple:
+                logger_string = "staple" if is_false_scaf else "scaffold"
                 self.logger.debug(
-                    f"strand starting at{(base.h, base.p)} considered as staple")
-                _change_strand_type(strand)
-            if not strand.is_scaffold and len(strand.tour) > scaffold_min_length:
-                self.logger.debug(
-                    f"strand starting at{(base.h, base.p)} considered as scaffold")
+                    f"strand starting at{(base.h, base.p)} considered as {logger_string}")
                 _change_strand_type(strand)
 
     def _create_scaffolds(self) -> List[Strand]:
@@ -159,15 +159,15 @@ class Design(object):
     def _create_staple_max_melt_T(self) -> Dict[Strand, float]:
         """ max_melt_T is the staple domain with the highest metling temperature"""
         staple_domains_melt_t: Dict[Strand, List[float]] = dict()
-        for staple, domains in self.domain_data.items():
+        for staple in self.staples:
+            domains = staple.domain_list
             for domain in domains:
                 if "N" not in domain.sequence:
-                    # NOTE: using nearest neighbor for domain with length higher than 14
+                    # NOTE: using nearest neighbor for domain with length higher
+                    #   than 14 using 'Wallace rule' else
                     if len(domain.base_list) > 14:
                         staple_domains_melt_t.setdefault(staple, []).append(MeltingTemp.Tm_NN(
                             Seq(domain.sequence), Na=0, Mg=17.5))
-
-                    # NOTE: using 'Wallace rule' for domain with length less than 14
                     else:
                         staple_domains_melt_t.setdefault(staple, []).append(MeltingTemp.Tm_Wallace(
                             Seq(domain.sequence)))
@@ -178,31 +178,49 @@ class Design(object):
     def _create_all_connections(self) -> Set[Connection]:
         """get a set of all interhelical connection of two bases."""
         all_con = set()
+        passed_bases = set()
         for strand in self.strands:
-            for base1 in strand.tour:
+            for base1 in (b for b in strand.tour if b not in passed_bases):
                 base2 = _check_base_crossover(base1)
                 if base2:
                     con = Connection(base1, base2)
+                    passed_bases.add(base1)
+                    passed_bases.add(base2)
 
                     all_con.add(con)
         return all_con
 
     def _create_crossovers(self) -> List[Crossover]:
         """organize connections into crossover objects with full syntax and typ annotation"""
-        _connections = self._connections.copy()
+        def find_second_connections(base: Base) -> Optional[Connection]:
+            """ check for possible 2nd connection for full crossover."""
+            if not base:
+                return None
+            for con2 in _connections:
+                con2_bases = con2.get_bases()
+                is_base_in_con = base in con2_bases
+                is_same_hs = {b.h for b in con2_bases} == {
+                    b.h for b in con2_bases}
+                if is_base_in_con and is_same_hs:
+                    _connections.remove(con2)
+                    connected_bases.difference_update(con2.get_bases())
+                    return con2
+            else:
+                self.logger.debug(
+                    f"Connection {(con2_base.h, con2_base.p, con2_base.is_scaf)}  ignored for Crossovers. Likely odd use of Crossover in Cadnano")
+                return None
 
-        gen = ({con.base1, con.base1} for con in _connections)
-        connected_bases = {b for bases in gen for b in bases}
+        _connections = self._create_all_connections()
+        connected_bases = {b for con in _connections for b in con.get_bases()}
 
         crossovers = list()
         while _connections:
             con1 = _connections.pop()
-            connected_bases.difference_update(con1.get_bases())
+            con1_bases = con1.get_bases()
+            connected_bases.difference_update(con1_bases)
 
-            is_ssDNA_loop = (None in con1.get_bases())
+            is_ssDNA_loop = (None in [b.across for b in con1_bases])
             if is_ssDNA_loop:
-                # either passivation loop or free scaffold loop
-                # TODO: collect for seperate statistics
                 self.logger.debug(
                     f"connection {(con1.base1.h, con1.base1.p)}  removed as ss loop")
                 continue
@@ -210,11 +228,9 @@ class Design(object):
             base_plus, base_minus = self._get_base_plus_minus(con1.base1)
             is_end_connection = (base_plus is None) or (base_minus is None)
             if is_end_connection:
-                is_end = True
-                con2 = None
+                is_end, con2 = True, None
             else:
                 is_end = False
-
                 if base_plus in connected_bases:
                     con2_base = base_plus
                 elif base_minus in connected_bases:
@@ -222,33 +238,16 @@ class Design(object):
                 else:
                     con2_base = False
 
-                # check for possible 2nd connection for full crossover
-                if con2_base:
-                    for con2 in _connections:
-                        is_base_in_con = con2_base in [con2.base1, con2.base2]
-                        is_same_hs = set([con2.base1.h, con2.base2.h]) == set(
-                            [con1.base1.h, con1.base2.h])
-                        if is_base_in_con and is_same_hs:
-                            _connections.remove(con2)
-                            connected_bases.difference_update(con2.get_bases())
-                            break
-                    else:
-                        self.logger.debug(
-                            f"Connection {(con2_base.h, con2_base.p, con2_base.is_scaf)}  ignored for Crossovers. Likely odd use of Crossover in Cadnano")
-                        con2 = None
-                else:
-                    con2 = None
-
+                con2 = find_second_connections(con2_base)
             co = Crossover(con1, con2, is_end)
-            co.set_orientation(self.helices)
-            co.set_scaffold_subtyp(self.helices, self.lattice)
+            co.set_orientation(self.helix_maps)
+            co.set_scaffold_subtyp(self.helix_maps, self.lattice)
             crossovers.append(co)
         return crossovers
 
     def _create_stacks(self) -> Dict[int, List[Set[int]]]:
         """ A stack is a Sets of connected helices (helixID)
-            Stacks are sorted to Lists according to their position (basePosition)
-        """
+            Stacks are sorted to Lists according to their position (basePosition)"""
         def _sort_by_position():
             position_crossovers = defaultdict(list)
             for co in full_crossovers:
@@ -266,8 +265,7 @@ class Design(object):
                 connected = list(
                     comp for comp in nx.connected_components(G) if len(comp) > 2)
                 if connected:
-                    self.logger.debug(
-                        f"Found stacks at {stack_p}: {connected}")
+                    self.logger.debug(f"Found stack at {stack_p}: {connected}")
                     stacks[stack_p] = connected
             return stacks
 
