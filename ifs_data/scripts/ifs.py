@@ -11,13 +11,18 @@ import numpy as np
 from typing import IO
 from datetime import date
 from pathlib import Path
+from shutil import copyfile
 
 from ifs_data import _init_logging
 from ifs_data.version import get_version
-from ifs_data.core.utils import (get_file, EXC_TXT, GEL_PROPERTIES, FOLD_PROPERTIES,
-                                 scaffold_dict_len, scaffold_dict_name, scaffold_dict_circ, scaffold_dict_gc)
+from ifs_data.core.utils import (get_file, GEL_PROPERTIES, FOLD_PROPERTIES,
+                                 scaffold_dict_len, scaffold_dict_name, scaffold_dict_circ,
+                                 scaffold_dict_gc, T_screen, Mg_screen)
 from ifs_data.core.designData import Design
 from ifs_data.database.compute_data import DesignStats
+
+
+logger = logging.getLogger(__name__)
 
 
 def print_version(ctx, param, value):
@@ -42,9 +47,31 @@ def process_txt_file(txt_file: str) -> dict:
             line = line.lower().replace(":", "=")
             for prop in ["tem_verified", "comment"]:
                 if line.startswith(prop):
-                    line.replace
                     data[prop] = line.split("=")[1].split(
                         "#")[0].strip().replace(",", "-")
+    return data
+
+
+def process_txt_file_publication(txt_file: str) -> dict:
+    props = ["tem_verified", "scaffold_type", "published", "lattice_type",
+             "date", "user", "design_name", "project"]
+    data = dict()
+    with open(txt_file) as f:
+        for line in f:
+            line = line.replace(":", "=", 1)
+            for prop in props:
+                if line.lower().startswith(prop):
+                    try:
+                        data[prop] = line.split("=")[1].split("#")[0].strip()
+                        continue
+                    except Exception:
+                        logger.exception(
+                            f"faulty data in property ({prop}) for file: {txt_file}")
+
+        missing = set(props) - set(data.keys())
+        if missing:
+            logger.error(f"missing data ({missing}) for file: {txt_file}")
+
     return data
 
 
@@ -97,6 +124,7 @@ def process_mat_file(mat_file: IO) -> dict:
     return data
 
 
+# TODO: move to compute_data
 def complete_dataframe(f):
 
     df = pd.read_csv(f)
@@ -140,6 +168,15 @@ def complete_dataframe(f):
         df["tem_verified"].map(dict(yes=1, no=0)).astype(int)
     df["quality"] = df["yield"] * df["purity"]
 
+    df["bestTs"] = df["bestTscrn"].map(T_screen)
+    df["bestMs"] = df["bestMgscrn"].map(Mg_screen)
+
+    df.loc[df["comment"].str.contains(
+        "temperature screen only over 3", na=False), 'bestTs'] = df.loc[df["comment"].str.contains(
+            "temperature screen only over 3", na=False), 'bestTs'].apply(lambda x: x[1:])
+
+    df["bestTs_max"] = df["bestTs"].apply(lambda x: max(x))
+    df["bestTs_min"] = df["bestTs"].apply(lambda x: min(x))
     return df
 
 
@@ -178,7 +215,6 @@ def create_database(db_folder, output, datafile):
                 continue
 
             # TODO: error if more than one .mat file
-
             logger.info(child.name)
             with get_file(logger, child, "*.json", IndexError):
                 json = list(child.glob("*.json")).pop()
@@ -240,6 +276,107 @@ def analyse_design(json, sequence, datafile):
         outfile.write(header + "\n")
         export = ",".join(str(v) for v in data.values())
         outfile.write(export + "\n")
+
+
+@cli.command()
+@click.argument('json', type=click.Path(exists=True))
+@click.argument('sequence', type=str)
+@click.argument('database', type=click.Path(exists=True))
+@click.option("-o", "--output",  type=click.Path(), default=None, help="output file name")
+@click.option('--to-best', is_flag=True,
+              help='compare to best designs')
+@click.option('--to-same-scaffold', is_flag=True,
+              help='compare to same scaffold')
+@click.option('--to-same-lattice', is_flag=True,
+              help='compare to same lattice')
+def compare_design(json, sequence, database, output, to_best, to_same_scaffold, to_same_lattice):
+    """ analyse a single design file and compare it to an existing database
+
+        JSON is the cadnano design file [.json]\n
+        DATABASE is the database file [.csv]\n
+        SEQUENCE is the name of scaffold strand\n
+    """
+    logger = logging.getLogger(__name__)
+
+    if output is None:
+        output = f"{json.name}-comparison.csv"
+    if output.suffix != ".csv":
+        logger.error(f"{output} is not a database file [.csv].")
+
+    design = Design(json=json, name=json.name,
+                    seq=sequence, circ_scaffold=True)
+    logger.debut(f"Successfully read design {json}")
+
+    compute = DesignStats(design=design)
+    compute.compute_data()
+    data = compute.prep_data_for_export()
+
+    # TODO: get average data from database
+    #   add same scaffold if selcted
+    #   add same lattice if selected
+    #   add same lattice and scaffold if both
+    # TODO: print "prediction" for T and Mg
+
+    # TODO: print comparative csv
+    with open(output, mode="w") as outfile:
+        header = ",".join(str(k) for k in data.keys())
+        outfile.write(header + "\n")
+        export = ",".join(str(v) for v in data.values())
+        outfile.write(export + "\n")
+
+
+@cli.command()
+@click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
+@click.option("-o", "--output",  type=click.Path(), default=Path("./__publications"), help="output folder")
+def create_publication_db(db_folder, output, ):
+    """ parse all folders in the database and extract publication data.
+        creates a new folder "__publications" wich contains a folder for each publication:
+            these folders contain cadnano design file and a short info file with scaffold, user, date, etc.
+    """
+    logger = logging.getLogger(__name__)
+    output.mkdir(parents=True, exist_ok=True)
+
+    exclude_count = 0
+    unpublished_count = 0
+    for child in db_folder.iterdir():
+        exclude = (
+            child.name.startswith(".")
+            or "__M" in child.name[-3:]
+            or child.name.startswith("__")
+            or not os.path.isdir(child.name)
+        )
+        if exclude:
+            logger.debug(f"skipping folder {child.name}")
+            exclude_count += 1
+            continue
+
+        logger.info(child.name)
+        with get_file(logger, child, "*.json", IndexError):
+            json = list(child.glob("*.json")).pop()
+        with get_file(logger, child, "*.txt", IndexError):
+            txt = list(child.glob("*.txt")).pop()
+
+        txt_data = process_txt_file_publication(txt)
+        publication = txt_data["published"]
+
+        if publication.lower() not in ["", "no", "none"]:
+            pub_path = output / publication
+            if not (pub_path.exists() and pub_path.is_dir()):
+                pub_path.mkdir()
+            project = txt_data["project"]
+            design_name = txt_data["design_name"]
+            name = f"{project}-{design_name}"
+            copyfile(json, pub_path / f"{name}.json")
+
+            txt_info = pub_path / f"{name}.txt"
+            with txt_info.open(mode='w') as f:
+                for key, value in txt_data.items():
+                    f.write(f"{key} = {value}\n")
+        else:
+            unpublished_count += 1
+
+    logger.debug(f"{exclude_count} folders skiped")
+    logger.info(f"{unpublished_count} unpublished designs ")
 
 
 if __name__ == "__main__":
