@@ -41,6 +41,5 @@ setup(
     entry_points='''
         [console_scripts]
         ifs=ifs_data.scripts.ifs:cli
-        ifs_db=ifs_data.scripts.ifs_db:cli_db
     ''',
 )

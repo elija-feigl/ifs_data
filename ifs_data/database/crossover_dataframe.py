@@ -3,16 +3,15 @@ import argparse
 from pathlib import Path
 
 from ..core.designData import Design
-from ..data.crossover import Crossover
 
 
 def crossover_dataframe(designdata: Design):
-    data = {
+    data: dict = {
         'type': [], 'strand_type': [], 'helices': [],
         'orientation': [], 'positions': [], 'Cadnano_type(integers)': []
     }
     for co in designdata.crossovers:
-        bases = co.get_bases()
+        bases = co.bases
         data['type'].append(co.typ)
         data['strand_type'].append(co.is_scaffold)
         data['helices'].append({base.h for base in bases})

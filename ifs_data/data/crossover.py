@@ -1,22 +1,34 @@
-import attr
-from typing import Set, Optional
-import numpy as np
 # import logging
+from typing import Optional, Set, List
 
+import attr
+import numpy as np
 from nanodesign.data.base import DnaBase as Base
+from ..core.utils import _hps
 
 
-@attr.s(slots=True, frozen=True)
+@ attr.s(slots=True, frozen=True)
 class Connection(object):
     """ interhelical connection of two bases """
     base1: Base = attr.ib()
     base2: Base = attr.ib()
 
-    def get_bases(self) -> Set[Base]:
+    def __str__(self):
+        return f"Connection: {[_hps(base) for base in self.bases]}"
+
+    @ property
+    def bases(self) -> Set[Base]:
         return {self.base1, self.base2}
 
+    @ property
+    def scaffold_pos(self) -> List[int]:
+        if self.base1.is_scaf:
+            return sorted([base.id for base in self.bases])
+        else:
+            return sorted([base.across.id for base in self.bases])
 
-@attr.s(slots=True)
+
+@ attr.s(slots=True)
 class Crossover(object):
     """ Dna Origami Crossover object
         composed of up to two connections, hence up to 4 bases
@@ -24,14 +36,20 @@ class Crossover(object):
     connection1: Connection = attr.ib()
     connection2: Optional[Connection] = attr.ib(default=None)
     is_end: bool = attr.ib(default=False)
+
     is_scaffold: bool = attr.ib(default=False)
-    scaff_full_type: int = attr.ib(default=-1)
     typ: str = attr.ib(default="")
+
+    scaff_full_type: int = attr.ib(default=-1)
     orientation: str = attr.ib(default="")
 
     def __attrs_post_init__(self):
         self.is_scaffold = self.connection1.base1.is_scaf
         self.typ = self._get_typ()
+
+    def __str__(self):
+        strand_type = "scafffold" if self.is_scaffold else "staple"
+        return f"Crossover: {strand_type}-{self.typ}-{self.orientation}: {[_hps(base) for base in self.bases]}"
 
     def _get_typ(self):
         if self.is_end:
@@ -41,10 +59,11 @@ class Crossover(object):
         else:
             return "full"
 
-    def get_bases(self) -> Set[Base]:
-        bases = self.connection1.get_bases()
+    @ property
+    def bases(self) -> Set[Base]:
+        bases = self.connection1.bases
         if self.connection2 is not None:
-            bases |= self.connection1.get_bases()
+            bases |= self.connection1.bases
         return bases
 
     def set_orientation(self, helices):

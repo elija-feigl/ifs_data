@@ -1,35 +1,32 @@
-import numpy as np
 import logging
-import itertools
-import attr
-import networkx as nx
-
-from typing import List, Dict, Tuple, Set, Optional
 from collections import defaultdict
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Set, Tuple
 
 import nanodesign as nd
+import networkx as nx
+import numpy as np
+from Bio.Seq import Seq
+from Bio.SeqUtils import MeltingTemp
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase as Base
-from nanodesign.data.strand import DnaStrand as Strand
 from nanodesign.data.dna_structure import DnaStructure as Structure
+from nanodesign.data.strand import DnaStrand as Strand
 
-from Bio.SeqUtils import MeltingTemp
-from Bio.Seq import Seq
-
-from ..data.crossover import Crossover, Connection
+from ..data.crossover import Connection, Crossover
 from ..data.nicks import Nick
-from .utils import _hps, _close_strand, _check_base_crossover, _change_strand_type
+from .utils import (_change_strand_type, _check_base_crossover, _close_strand,
+                    _hps)
 
 
-@attr.s
+@dataclass
 class Design(object):
-    json: str = attr.ib()
-    name: str = attr.ib()
-    seq: str = attr.ib()
-    circ_scaffold: bool = attr.ib(default=True)
+    json: str
+    name: str
+    seq: str
+    circ_scaffold: bool = True
 
-    def __attrs_post_init__(self):
-
+    def __post_init__(self):
         self.logger = logging.getLogger(__name__)
         logging.getLogger("nanodesign").setLevel(logging.WARNING)
 
@@ -191,38 +188,38 @@ class Design(object):
         return all_con
 
     def _create_crossovers(self) -> List[Crossover]:
-        """organize connections into crossover objects with full syntax and typ annotation"""
+        """ organize connections into crossover objects with full syntax and typ annotation
+            NOTE: nanodesign crossover is auqivalent to connection
+            """
         def find_second_connections(base: Base) -> Optional[Connection]:
             """ check for possible 2nd connection for full crossover."""
             if not base:
                 return None
             for con2 in _connections:
-                con2_bases = con2.get_bases()
+                con2_bases = con2.bases
                 is_base_in_con = base in con2_bases
                 is_same_hs = {b.h for b in con2_bases} == {
                     b.h for b in con2_bases}
                 if is_base_in_con and is_same_hs:
                     _connections.remove(con2)
-                    connected_bases.difference_update(con2.get_bases())
+                    connected_bases.difference_update(con2.bases)
                     return con2
             else:
                 self.logger.debug(
-                    f"Connection {(con2_base.h, con2_base.p, con2_base.is_scaf)}  ignored for Crossovers. Likely odd use of Crossover in Cadnano")
+                    f"Connection {_hps(con2_base)} ignored for Crossovers.")
                 return None
 
         _connections = self._create_all_connections()
-        connected_bases = {b for con in _connections for b in con.get_bases()}
+        connected_bases = {b for con in _connections for b in con.bases}
 
         crossovers = list()
         while _connections:
             con1 = _connections.pop()
-            con1_bases = con1.get_bases()
+            con1_bases = con1.bases
             connected_bases.difference_update(con1_bases)
 
-            is_ssDNA_loop = (None in [b.across for b in con1_bases])
-            if is_ssDNA_loop:
-                self.logger.debug(
-                    f"connection {(con1.base1.h, con1.base1.p)}  removed as ss loop")
+            if not all(b.across for b in con1_bases):
+                self.logger.debug(f"{con1}  removed as ss loop")
                 continue
 
             base_plus, base_minus = self._get_base_plus_minus(con1.base1)
@@ -242,6 +239,7 @@ class Design(object):
             co = Crossover(con1, con2, is_end)
             co.set_orientation(self.helix_maps)
             co.set_scaffold_subtyp(self.helix_maps, self.lattice)
+
             crossovers.append(co)
         return crossovers
 
@@ -252,7 +250,7 @@ class Design(object):
             position_crossovers = defaultdict(list)
             for co in full_crossovers:
                 # NOTE: assuming "perfect crossovers": position is marked by left base in left connection
-                co_p = min(base.p for base in co.get_bases())
+                co_p = min(base.p for base in co.bases)
                 position_crossovers[co_p].append(
                     (co.connection1.base1.h, co.connection1.base2.h))
             return position_crossovers

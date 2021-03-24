@@ -1,49 +1,52 @@
-import attr
 import logging
-import numpy as np
-
-from typing import List, Dict, Tuple, Any
+from dataclasses import dataclass
+from itertools import chain
 from operator import attrgetter
+from typing import Any, Dict, List, Tuple
 
-from ..core.utils import get_statistics, n_bases, save_division
+from nanodesign.data.base import DnaBase as Base
+from nanodesign.data.strand import DnaStrand as Strand
+
 from ..core.designData import Design
+from ..core.utils import get_statistics, save_division
+from ..data.crossover import Crossover
 
-# TODO: classmethod etc
 STRAND_TYPES = ["scaffold", "staple"]
 CO_TYPES = ["full", "half", "end"]
 ORIENTS = ["v", "h"]
 
 
-@attr.s
+@dataclass
 class DesignStats(object):
-    design: Design = attr.ib()
+    design: Design
 
-    logger = logging.getLogger(__name__)
+    def __post_init__(self):
+        self.logger = logging.getLogger(__name__)
 
     def compute_data(self) -> None:
         design = self.design
         data: Dict[str, Any] = dict()
         data["name"] = design.name
         data["lattice_type"] = design.lattice
-        data["dim_x"], data["dim_y"], data["dim_z"] = self.get_dimension()
-        data['alpha_value'] = self.get_alpha_values()
+        data.update(self.get_dimension())
         data["n_helices"] = self.get_n_helices()
 
         data["n_nicks"] = self.get_number_nicks()
-        data["n_stacks"] = len(self.get_stacks_lengths())
-        data["stacks_length"] = self.get_stacks_lengths()
+        stacks = self.get_stacks_lengths()
+        data["n_stacks"] = len(stacks)
+        data["stacks_length"] = stacks
         data["loops_length"] = self.get_loops()
 
+        # NOTE: skips and insertions are only counted once per bp
         data["n_insertions"] = len(design.hps_insertions) // 2
         data["n_deletions"] = len(design.hps_deletions) // 2
-        data["insertions_denisty"], data["deletion_denisty"] = self.get_insertion_deletion_density()
-
-        data["n_bluntends"] = len(self.get_blunt_ends())
+        data.update(self.get_insertion_deletion_density())
 
         # staple stats
         data["n_staples"] = len(design.staples)
         data["staples_length"] = self.get_staples_length()
         data["helices_staples_pass"] = self.get_num_staple_helix()
+        data['alpha_value'] = self.get_alpha_values()
 
         # domains
         data["n_staples_domains"] = self.get_n_staples_domains()
@@ -53,7 +56,8 @@ class DesignStats(object):
 
         # crossovers
         data.update(self.get_full_scaff_co_typ_stat())
-        data["co_set"], data["co_possible"], data["co_density"] = self.get_co_density()
+        data.update(self.get_co_density())
+        data["n_bluntends"] = self.get_n_blunt_ends()
 
         self.data = data
 
@@ -63,9 +67,6 @@ class DesignStats(object):
             if name in ["co_set", "co_possible", "co_density"]:
                 for strand_name, subtypes in value.items():
                     for typ, n_co in subtypes.items():
-                        if (strand_name == 'scaffold') and (typ in ['half', 'half_v', 'half_h']):
-                            self.logger.debug(
-                                "statistics of design reveal scaffold half crossover.")
                         export["{}_{}_{}".format(
                             name, strand_name, typ)] = n_co
 
@@ -100,20 +101,20 @@ class DesignStats(object):
         return alpha_values
 
     def get_staples_length(self) -> List[int]:
-        """ creates a list of the length of each staple"""
+        """ creates a list of the length of each staple."""
         return [len(staple.tour) for staple in self.design.staples]
 
     def get_num_staple_helix(self) -> List[int]:
-        """ creates a dictionary with a set of helices that it passes through for each staple"""
+        """ creates a list with a set of helices that it passes through for each staple"""
         return [len(staple.helix_list) for staple in self.design.staples]
 
     def get_number_nicks(self) -> int:
         return len(self.design.nicks)
 
     def get_n_helices(self, min_bases=20) -> int:
-        return len([h for h in self.design.helices if n_bases(h) > min_bases])
+        return len([h for h in self.design.helices if len(h.scaffold_bases) > min_bases])
 
-    def get_dimension(self, min_bases=20) -> Tuple[int, int, int]:
+    def get_dimension(self, min_bases=20) -> Dict[str, int]:
         """ gets the dimension of the structure as columns, rows, and position (min-max)
             NOTE: these values are wrong for multidomain designs
         """
@@ -122,16 +123,20 @@ class DesignStats(object):
             max_attr = max(helices, key=attrgetter(attr))
             return getattr(max_attr, attr) - getattr(min_attr, attr) + 1
 
-        helices = [h for h in self.design.helices if n_bases(h) > min_bases]
-        return (dim_attr(helices, "lattice_col"),
-                dim_attr(helices, "lattice_row"),
-                dim_attr(helices, "min_scaffold_pos"))
+        helices = [h for h in self.design.helices if len(
+            h.scaffold_bases) > min_bases]
+        return {
+            "dim_x": dim_attr(helices, "lattice_col"),
+            "dim_y": dim_attr(helices, "lattice_row"),
+            "dim_z": dim_attr(helices, "min_scaffold_pos"),
+        }
 
     def get_insertion_deletion_density(self):
+        # NOTE: skips and insertions are only counted once per bp
         scaffolds_length = sum(len(s.tour) for s in self.design.scaffolds)
-        ins_density = len(self.design.hps_insertions) / scaffolds_length
-        del_density = len(self.design.hps_deletions) / scaffolds_length
-        return ins_density, del_density
+        ins_density = len(self.design.hps_insertions) / 2 / scaffolds_length
+        del_density = len(self.design.hps_deletions) / 2 / scaffolds_length
+        return {"insertions_denisty": ins_density, "deletion_denisty": del_density}
 
     def get_stacks_lengths(self):
         """ creates a list of the length of each stack."""
@@ -143,7 +148,7 @@ class DesignStats(object):
 
     def get_long_domains(self) -> dict:
         """ list all long domains per staple
-            count how many staples have either 0,1 or 2 long segments."""
+            count how many staples have either 0, 1 or 2 long segments."""
         def _is_long_(domain):
             return True if (len(domain.base_list) >= 14) else False
 
@@ -177,20 +182,21 @@ class DesignStats(object):
     def get_staple_domain_melt_T(self) -> List:
         return list(self.design.max_staple_melt_t.values())
 
-    def get_co_density(self):
+    def get_co_density(self) -> dict:
         """ calculate crossover density (number of crossovers is the structure
             divided by possible crossovers CadNano)."""
         def init_co_dict(seperate_types: bool = True):
-            types = CO_TYPES if seperate_types else[]
+            types = CO_TYPES if seperate_types else []
             co_dict: Dict[str, Dict[str, int]] = dict()
             for strand_type in STRAND_TYPES:
-                for typ in types:
-                    for orient in ORIENTS:
-                        keys = [f"co_{orient}", "co"]
-                        if seperate_types:
+                co_dict[strand_type] = dict()
+                for orient in ORIENTS:
+                    keys = [f"co_{orient}", "co"]
+                    if seperate_types:
+                        for typ in types:
                             keys += [f"{typ}_{orient}", f"{typ}"]
-                        for key in keys:
-                            co_dict[strand_type][key] = 0
+                    for key in keys:
+                        co_dict[strand_type][key] = 0
             return co_dict
 
         def count_co(position_list):
@@ -222,7 +228,7 @@ class DesignStats(object):
             return any(b.p == p for b in bases)
 
         def is_oriented(typ, helix, helix2):
-            """ Horizontal connections are in the same row, verticals in same column"""
+            """ Horizontal connections are in the same row, verticals in same column."""
             orient = "lattice_row" if typ == 'h' else "lattice_col"
             return getattr(helix, orient) == getattr(helix2, orient)
 
@@ -267,7 +273,7 @@ class DesignStats(object):
                 set_crossovers[strand_type]["co"] += 1
 
         # part3 get crossover denisity
-        co_density = dict()
+        co_density: dict = dict()
         for strand_type in STRAND_TYPES:
             co_density[strand_type] = dict()
             for key, n_possible in possible_connections[strand_type].items():
@@ -276,9 +282,13 @@ class DesignStats(object):
                     co_density[strand_type][key] = save_division(
                         n_set, n_possible)
 
-        return set_crossovers, possible_connections, co_density
+        return {
+            "co_set": set_crossovers,
+            'co_possible': possible_connections,
+            'co_density': co_density,
+        }
 
-    def get_full_scaff_co_typ_stat(self):
+    def get_full_scaff_co_typ_stat(self) -> Dict[str, int]:
         type_count = [0, 0, 0]
         for full in (co for co in self.design.crossovers if co.typ == "full" and co.is_scaffold):
             type_count[full.scaff_full_type-1] += 1
@@ -289,66 +299,60 @@ class DesignStats(object):
             'full_scaf_co_type_3': type_count[2],
         }
 
-    def get_blunt_ends(self):
-        blunt_ends = set()
-        first_bases = {staple.tour[0] for staple in self.design.staples}
-        last_bases = {staple.tour[-1] for staple in self.design.staples}
+    def get_n_blunt_ends(self) -> int:
+        """ Blunt ends are scaffold end crossovers where the staple ends at the crossover."""
+        def is_scaff_end(co: Crossover) -> bool:
+            return co.typ == "end" and co.is_scaffold
 
-        for end in (co for co in self.design.crossovers if co.typ == "end"):
-            has_across = (end.connection1.base1.across is True) and (
-                end.connection1.base2.across is True)
-            if end.is_scaffold == 'scaffold' and has_across:
-                blunt_ends = {end.connection1 for base in end.connection1 if (
-                    base.across in first_bases) or (base.across in last_bases)}
+        def termini(staple: Strand) -> Tuple[Base, Base]:
+            return (staple.tour[0], staple.tour[-1])
 
-        return blunt_ends
+        def is_blunt(co: Crossover) -> bool:
+            return all((b.across in staple_termini) for b in co.bases)
+
+        ends = [co for co in self.design.crossovers if is_scaff_end(co)]
+
+        staple_termini_tuple = (termini(s) for s in self.design.staples)
+        staple_termini = set(chain.from_iterable(staple_termini_tuple))
+        return sum(1 for co in ends if is_blunt(co))
 
     def get_loops(self):
+        """ A scaffold loop is the distance along the scaffold of two scaffold bases
+                conected via a crossover. There are two types:
+                 * connected by staple crossover
+                 * connected via staple at full scaffold crossover
+        """
+        def correct_diff(co, diff):
+            if co.is_scaffold:
+                sc_id = list(co.bases)[0].strand
+            else:
+                sc_id = list(co.bases)[0].across.strand
+
+            sc = next((s for s in self.design.scaffolds if s.id == sc_id), None)
+            if sc is None:
+                import ipdb
+                ipdb.set_trace()
+            sc_length = len(sc.tour)
+
+            return diff if diff > (sc_length / 2) else (sc_length - diff)
+
         loops = list()
-        real_crossover = (
-            co for co in self.design.crossovers if co.typ != "end")
-        for co in real_crossover:
-            sub = np.inf
-            if co.is_scaffold == 'scaffold':
-                stacks = tuple([
-                    tuple([co.connection1.base1, co.connection2.base1]),
-                    tuple([co.connection1.base2, co.connection2.base2])
-                ])
-                for stack in stacks:
-                    if stack[0].across is None or stack[1].across is None:
-                        continue
-                    same_staple = (stack[0].across.strand
-                                   == stack[1].across.strand)
-                    sc = self.design.strands[stack[0].strand]
-                    same_scaffold = (sc.id == stack[1].strand)
-                    if same_staple and same_scaffold:
-                        # NOTE: potentially (stack[0].residue -1) istead of tour(index)
-                        sub_new = abs(sc.tour.index(stack[0])
-                                      - sc.tour.index(stack[1])
-                                      )
-                        if sub_new > len(sc.tour) / 2:
-                            sub_new = len(sc.tour) - sub_new
-                        if sub_new < sub:
-                            sub = sub_new
+        # = [co for co in self.design.crossovers if co.typ != "end"]
+        for co in (co for co in self.design.crossovers if co.typ != "end"):
+            if co.is_scaffold:
+                if co.typ == "half":
+                    self.logger.debug(f"Ignoring scaffold half {co}.")
+                    continue
+                p_diff = abs(co.connection1.scaffold_pos[0] -
+                             co.connection2.scaffold_pos[0])
 
-            else:  # staple
-                for connection in [co.connection1, co.connection2]:
-                    if connection is None:  # NOTE: only 1 for half_co
-                        continue
-                    if connection.base1.across is None or connection.base2.across is None:
-                        continue
-                    sc = self.design.strands[connection.base1.across.strand]
-                    same_scaffold = (sc.id == connection.base2.across.strand)
-                    if same_scaffold:
-                        base_1 = sc.tour.index(connection.base1.across)
-                        base_2 = sc.tour.index(connection.base2.across)
-                        sub_new = abs(base_1 - base_2)
+            else:
+                if not any(b.across.is_scaf for b in co.bases):
+                    self.logger.debug(f"Ignoring staple-staple {co}.")
+                    continue
+                sc_pos = co.connection1.scaffold_pos
+                p_diff = sc_pos[1] - sc_pos[0]
 
-                        if sub_new > len(sc.tour) / 2:
-                            sub_new = len(sc.tour) - sub_new
-                        if sub_new < sub:
-                            sub = sub_new
-            if not np.isinf(sub):
-                loops.append(sub)
-
+            distance = correct_diff(co, p_diff)
+            loops.append(distance)
         return loops

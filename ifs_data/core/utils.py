@@ -106,7 +106,3 @@ def _change_strand_type(strand: Strand):
     strand.is_scaffold = not typ
     for base in strand.tour:
         base.is_scaf = not typ
-
-
-def n_bases(helix):
-    return len(helix.staple_bases) + len(helix.scaffold_bases)

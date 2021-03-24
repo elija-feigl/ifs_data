@@ -1,6 +1,6 @@
 from typing import List
 
-__version__ = "0.4"
+__version__ = "0.5"
 __authors__ = ["Elija Feigl", "Kourosh Zargari"]
 __copyright__ = "Copyright 2021, Dietzlab (TUM)"
 __license__ = "GPL-3.0"
