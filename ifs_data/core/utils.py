@@ -1,8 +1,7 @@
 import numpy as np
 from pathlib import Path
-import contextlib
 
-from typing import Tuple, Union
+from typing import Tuple, Union, Any
 
 from nanodesign.data.base import DnaBase as Base
 from nanodesign.data.strand import DnaStrand as Strand
@@ -16,34 +15,37 @@ GEL_PROPERTIES = ["user", "project", "design_name", "date", "tem_verified",
 FOLD_PROPERTIES = ["qualityMetric", "bestTscrn", "bestMgscrn", "qualityMetric",
                    "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized",
                    "fractionPocket", "fractionSmear"]
-scaffold_dict_len = {"8064": 8064, "7560": 7560, "cs11": 7560, "cs16": 7560,
-                     "cs15": 7560, "2873": 2873, "1317": 1317, "2048": 2057,
-                     "7249": 7249, "9072": 9072, "cs12": 7560,
-                     "7704": 7704, "cs17": 8039, "cs13": 7560, "4536": 4536}
-scaffold_dict_name = {"8064": "8064", "7560": "7560", "cs11": "cs11", "cs16": "cs16",
-                      "cs15": "cs15", "2873": "CS3_XS", "1317": "RFP", "2048": "Pippin",
-                      "7249": "7249", "9072": "CS3_XL", "cs12": "cs12",
-                      "7704": "7704", "cs17": "cs17", "cs13": "cs13", "4536": "CS3_S"}
-scaffold_dict_circ = {"8064": True, "7560": True, "cs11": True, "cs16": False,
-                      "cs15": False, "2873": True, "1317": True, "2048": True,
-                      "7249": True, "9072": True, "cs12": False,
-                      "7704": True, "cs17": False, "cs13": False, "4536": True}
-scaffold_dict_gc = {"8064": 0.44, "7560": 0.42, "cs11": 0.435, "cs16": 0.6,
-                    "cs15": 0.58, "2873": 0.5, "1317": 0.51, "2048": 0.51,
-                    "7249": 0.42, "9072": 0.49, "cs12": 0.3,
-                    "7704": 0.427, "cs17": 0.448, "cs13": 0.34, "4536": 0.49}
-T_screen = {f"t{x}": list(range(47 + 2 * (x-1), 51 + 2 * (x-1)))
+scaffold_dict_len = {"8064": 8064, "7560": 7560, "CS11": 7560, "CS16": 7560,
+                     "CS15": 7560, "2873": 2873, "1317": 1317, "2048": 2057,
+                     "7249": 7249, "9072": 9072, "CS12": 7560,
+                     "7704": 7704, "CS17": 8039, "CS13": 7560, "4536": 4536}
+scaffold_dict_name = {"8064": "8064", "7560": "7560", "CS11": "CS11", "CS16": "CS16",
+                      "CS15": "CS15", "2873": "CS3_XS", "1317": "RFP", "2048": "Pippin",
+                      "7249": "7249", "9072": "CS3_XL", "CS12": "CS12",
+                      "7704": "7704", "CS17": "CS17", "CS13": "CS13", "4536": "CS3_S"}
+scaffold_dict_circ = {"8064": True, "7560": True, "CS11": True, "CS16": False,
+                      "CS15": False, "2873": True, "1317": True, "2048": True,
+                      "7249": True, "9072": True, "CS12": False,
+                      "7704": True, "CS17": False, "CS13": False, "4536": True}
+scaffold_dict_gc = {"8064": 0.44, "7560": 0.42, "CS11": 0.435, "CS16": 0.6,
+                    "CS15": 0.58, "2873": 0.5, "1317": 0.51, "2048": 0.51,
+                    "7249": 0.42, "9072": 0.49, "CS12": 0.3,
+                    "7704": 0.427, "CS17": 0.448, "CS13": 0.34, "4536": 0.49}
+T_screen = {f"T{x}": list(range(47 + 2 * (x-1), 51 + 2 * (x-1)))
             for x in range(1, 9)}
-Mg_screen = {f"m{x}": x for x in range(5, 35, 5)}
+Mg_screen = {f"M{x}": x for x in range(5, 35, 5)}
 
 
-@contextlib.contextmanager
-def get_file(logger, folder: Path, rex: str, *exceptions):
-    try:
-        yield
-    except exceptions:
-        e_ = ("{} missing  " + EXC_TXT[14:26]).format(rex[-4:], folder)
-        logger.error(e_)
+def get_file(logger, folder: Path, suffix: str) -> Path:
+    files = list(folder.glob(f"*.{suffix}"))
+    if not files:
+        logger.error(f"Could not find .{suffix} file. Abort!")
+        raise IOError
+    elif len(files) > 1:
+        logger.error(f"Found more than one .{suffix} file. Abort!")
+        raise IOError
+    else:
+        return files.pop()
 
 
 def save_division(dividend,  divisor) -> float:
@@ -109,3 +111,10 @@ def _change_strand_type(strand: Strand):
     strand.is_scaffold = not typ
     for base in strand.tour:
         base.is_scaf = not typ
+
+
+def _str(value: Any):
+    if isinstance(value, float):
+        return f'{value:.5g}'
+    else:
+        return str(value)

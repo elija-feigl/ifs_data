@@ -1,5 +1,4 @@
-# import logging
-from typing import Optional, Set, List
+from typing import Optional, Set
 
 import attr
 import numpy as np
@@ -19,13 +18,6 @@ class Connection(object):
     @ property
     def bases(self) -> Set[Base]:
         return {self.base1, self.base2}
-
-    @ property
-    def scaffold_pos(self) -> List[int]:
-        if self.base1.is_scaf:
-            return sorted([base.id for base in self.bases])
-        else:
-            return sorted([base.across.id for base in self.bases])
 
 
 @ attr.s(slots=True)

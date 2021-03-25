@@ -100,6 +100,9 @@ class Design(object):
         if self.circ_scaffold:
             for strand in scaffolds:
                 _close_strand(strand)
+        if len(scaffolds) > 1:
+            # TODO -low-: multi-scaffold
+            self.logger.error("multi-scaffold design not fully supported yet")
         return scaffolds
 
     def _create_staples(self) -> List[Strand]:

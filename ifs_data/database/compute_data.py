@@ -330,34 +330,40 @@ class DesignStats(object):
                  * connected by staple crossover
                  * connected via staple at full scaffold crossover
         """
-        def correct_diff(co, diff):
+        def get_scaffold(co):
             if co.is_scaffold:
                 sc_id = list(co.bases)[0].strand
             else:
                 sc_id = list(co.bases)[0].across.strand
+            return next((s for s in self.design.scaffolds if s.id == sc_id), None)
 
-            sc = next((s for s in self.design.scaffolds if s.id == sc_id), None)
-            sc_length = len(sc.tour)
-
-            return diff if diff > (sc_length / 2) else (sc_length - diff)
+        def scaffold_pos(connection, scaffold) -> List[int]:
+            if connection.base1.is_scaf:
+                return sorted([sc.tour.index(base) for base in connection.bases])
+            else:
+                return sorted([sc.tour.index(base.across) for base in connection.bases])
 
         loops = list()
-        # = [co for co in self.design.crossovers if co.typ != "end"]
         for co in (co for co in self.design.crossovers if co.typ != "end"):
+            sc = get_scaffold(co)
+            if sc is None:
+                continue
             if co.is_scaffold:
                 if co.typ == "half":
                     self.logger.debug(f"Ignoring scaffold half {co}.")
                     continue
-                p_diff = abs(co.connection1.scaffold_pos[0] -
-                             co.connection2.scaffold_pos[0])
+                p_1 = scaffold_pos(co.connection1, sc)
+                p_2 = scaffold_pos(co.connection2, sc)
+                p_diff = abs(p_1[0] - p_2[0])
 
             else:
                 if not any(b.across.is_scaf for b in co.bases):
                     self.logger.debug(f"Ignoring staple-staple {co}.")
                     continue
-                sc_pos = co.connection1.scaffold_pos
-                p_diff = sc_pos[1] - sc_pos[0]
+                p_1 = scaffold_pos(co.connection1, sc)
+                p_diff = p_1[1] - p_1[0]
 
-            distance = correct_diff(co, p_diff)
+            distance = p_diff if p_diff < (
+                len(sc.tour) / 2) else (len(sc.tour) - p_diff)
             loops.append(distance)
         return loops

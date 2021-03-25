@@ -16,7 +16,7 @@ from ifs_data import _init_logging
 from ifs_data.version import get_version
 from ifs_data.core.utils import (get_file, GEL_PROPERTIES, FOLD_PROPERTIES,
                                  scaffold_dict_len, scaffold_dict_name, scaffold_dict_circ,
-                                 scaffold_dict_gc, T_screen, Mg_screen)
+                                 scaffold_dict_gc, T_screen, Mg_screen, _str)
 from ifs_data.core.designData import Design
 from ifs_data.database.compute_data import DesignStats
 
@@ -35,27 +35,32 @@ def export_data(data: dict, fdb_file: IO) -> None:
     if not fdb_file.tell():  # true if empty
         header = ",".join(str(k) for k in data.keys())
         fdb_file.write(header + "\n")
-    export = ",".join(str(v) for v in data.values())
+    export = ",".join(_str(v) for v in data.values())
     fdb_file.write(export + "\n")
 
 
-def _process_txt_file(txt_file: str) -> dict:
+def _process_txt_file(txt_file: Path) -> dict:
+    # NOTE: remove once matlab script includes these values
     data = dict()
-    with open(txt_file) as f:
+    with txt_file.open() as f:
         for line in f:
-            line = line.lower().replace(":", "=")
+            line = line.replace(":", "=", 1)
             for prop in ["tem_verified", "comment"]:
-                if line.startswith(prop):
+                if line.lower().startswith(prop):
                     data[prop] = line.split("=")[1].split(
                         "#")[0].strip().replace(",", "-")
+
+    missing = set(["tem_verified", "comment"]) - set(data.keys())
+    if missing:
+        logger.error(f"missing data ({missing}) for file: {txt_file}")
     return data
 
 
-def process_txt_file_publication(txt_file: str) -> dict:
+def process_txt_file_publication(txt_file: Path) -> dict:
     props = ["tem_verified", "scaffold_type", "published", "lattice_type",
              "date", "user", "design_name", "project"]
     data = dict()
-    with open(txt_file) as f:
+    with txt_file.open() as f:
         for line in f:
             line = line.replace(":", "=", 1)
             for prop in props:
@@ -67,14 +72,13 @@ def process_txt_file_publication(txt_file: str) -> dict:
                         logger.exception(
                             f"faulty data in property ({prop}) for file: {txt_file}")
 
-        missing = set(props) - set(data.keys())
-        if missing:
-            logger.error(f"missing data ({missing}) for file: {txt_file}")
-
+    missing = set(props) - set(data.keys())
+    if missing:
+        logger.error(f"missing data ({missing}) for file: {txt_file}")
     return data
 
 
-def process_mat_file(mat_file: IO, txt_file: str) -> dict:
+def process_mat_file(mat_file: Path, txt_file: Path) -> dict:
 
     mat = sio.loadmat(mat_file, squeeze_me=True)
     try:
@@ -104,12 +108,17 @@ def process_mat_file(mat_file: IO, txt_file: str) -> dict:
                     "migrationDistanceNormalized", "fractionPocket", "fractionSmear"] and is_set:
             prop_str = str(info[prop].item()[best_idx])
             prop_str_sc = str(info[prop].item()[sc_idx]) + "_scaffold"
-            data.update({prop + "_scaffold": prop_str_sc.lower()})
+            data.update({prop + "_scaffold": prop_str_sc})
         elif is_set:
             prop_str = str(info[prop]).replace(",", ".")
         else:
             prop_str = " "
-        data.update({prop: prop_str.lower()})
+        if prop == "name":
+            prop_str = prop_str.upper()
+        if prop == "lattice_type":
+            # correct some erroneous input in database
+            prop_str = prop_str.split("_")[0].lower()
+        data.update({prop: prop_str})
 
     for prop in ["qualityMetric", "fractionMonomer", "bandWidthNormalized",
                  "migrationDistanceNormalized", "fractionPocket", "fractionSmear"]:
@@ -169,8 +178,8 @@ def cli():
 @ click.option("-o", "--output",  type=click.Path(), default=Path("./__database"), help="output folder")
 @ click.option("-d", "--datafile",  default="fdb", help="database-file name")
 def create_database(db_folder, output, datafile):
-    """ processes database design files. matlabscript on IFS has to be run first.
-        creates database.csv in specified folder
+    """ combine stats from from database design files & IFS_matlab data.
+            creates .csv in specified folder
     """
     logger = logging.getLogger(__name__)
     # NOTE: click will drop python2 support soon and actually return a Path
@@ -196,15 +205,10 @@ def create_database(db_folder, output, datafile):
                 exclude_count += 1
                 continue
 
-            # TODO: error if more than one .mat file
             logger.info(child.name)
-            with get_file(logger, child, "*.json", IndexError):
-                json = list(child.glob("*.json")).pop()
-            with get_file(logger, child, "*.mat", IndexError):
-                mat = list(child.glob("*.mat")).pop()
-            with get_file(logger, child, "*.txt", IndexError):
-                txt = list(child.glob("*.txt")).pop()
-
+            json = get_file(logger, child, "*json")
+            mat = get_file(logger, child, "*mat")
+            txt = get_file(logger, child, "*txt")
             mat_data = process_mat_file(mat, txt)
 
             design_name = mat_data["design_name"]
@@ -226,7 +230,7 @@ def create_database(db_folder, output, datafile):
 @ click.argument('sequence', type=str)
 @ click.option("-d", "--datafile",  default="fdb", help="database-file name")
 def analyse_design(json, sequence, datafile):
-    """ analyse a single design file and link it to the ifs data as a csv
+    """ analyse a single design file with output as a csv
 
         JSON is the name of the cadnano design file [.json]\n
         SEQUENCE is the name of scaffold strand\n
@@ -247,7 +251,7 @@ def analyse_design(json, sequence, datafile):
     with open(outname, mode="w") as outfile:
         header = ",".join(str(k) for k in data.keys())
         outfile.write(header + "\n")
-        export = ",".join(str(v) for v in data.values())
+        export = ",".join(_str(v) for v in data.values())
         outfile.write(export + "\n")
 
 
