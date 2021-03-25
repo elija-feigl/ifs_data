@@ -4,6 +4,7 @@
 import os
 import click
 import logging
+import pandas as pd
 import scipy.io as sio
 
 from typing import IO, Any, Dict
@@ -19,7 +20,7 @@ from ifs_data.core.utils import (get_file, GEL_PROPERTIES, FOLD_PROPERTIES,
 from ifs_data.core.designData import Design
 from ifs_data.database.compute_data import DesignStats
 
-
+TOP_X = 0.2
 logger = logging.getLogger(__name__)
 
 
@@ -172,6 +173,11 @@ def create_database(db_folder, output, datafile):
         creates database.csv in specified folder
     """
     logger = logging.getLogger(__name__)
+    # NOTE: click will drop python2 support soon and actually return a Path
+    if isinstance(db_folder, str):
+        db_folder = Path(db_folder)
+    if isinstance(output, str):
+        output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
 
     date_str = str(date.today().strftime("%y-%b-%d"))
@@ -225,12 +231,14 @@ def analyse_design(json, sequence, datafile):
         JSON is the name of the cadnano design file [.json]\n
         SEQUENCE is the name of scaffold strand\n
     """
-    logger = logging.getLogger(__name__)
+    # NOTE: click will drop python2 support soon and actually return a Path
+    json = Path(json)
 
-    outname = f"{json.name}-stat.csv"
-    design = Design(json=json, name=json.name,
+    logger = logging.getLogger(__name__)
+    outname = f"{json.stem}-stat.csv"
+    design = Design(json=json, name=json.stem,
                     seq=sequence, circ_scaffold=True)
-    logger.debut(f"Successfully read design {json}")
+    logger.debug(f"Successfully read design {json}")
 
     compute = DesignStats(design=design)
     compute.compute_data()
@@ -250,44 +258,65 @@ def analyse_design(json, sequence, datafile):
 @ click.option("-o", "--output",  type=click.Path(), default=None, help="output file name")
 @ click.option('--to-best', is_flag=True,
                help='compare to best designs')
-@ click.option('--to-same-scaffold', is_flag=True,
+@ click.option('--to-scaffold', is_flag=True,
                help='compare to same scaffold')
-@ click.option('--to-same-lattice', is_flag=True,
+@ click.option('--to-lattice', is_flag=True,
                help='compare to same lattice')
-def compare_design(json, sequence, database, output, to_best, to_same_scaffold, to_same_lattice):
+def compare_design(json, sequence, database, output, to_best, to_scaffold, to_lattice):
     """ analyse a single design file and compare it to an existing database
 
         JSON is the cadnano design file [.json]\n
-        DATABASE is the database file [.csv]\n
         SEQUENCE is the name of scaffold strand\n
+        DATABASE is the database file [.csv]\n
     """
     logger = logging.getLogger(__name__)
-
+    # NOTE: click will drop python2 support soon and actually return a Path
+    json = Path(json)
+    database = Path(database)
     if output is None:
-        output = f"{json.name}-comparison.csv"
-    if output.suffix != ".csv":
-        logger.error(f"{output} is not a database file [.csv].")
+        output = Path(f"{json.stem}-comparison.csv")
+    else:
+        output = Path(output)
 
-    design = Design(json=json, name=json.name,
+    design = Design(json=json, name=json.stem,
                     seq=sequence, circ_scaffold=True)
-    logger.debut(f"Successfully read design {json}")
-
+    logger.debug(f"Successfully read design {json}")
     compute = DesignStats(design=design)
     compute.compute_data()
     data = compute.prep_data_for_export()
 
-    # TODO: get average data from database
-    #   add same scaffold if selcted
-    #   add same lattice if selected
-    #   add same lattice and scaffold if both
-    # TODO: print "prediction" for T and Mg
+    df_data = pd.DataFrame(data, index=[f"{json.stem}"])
 
-    # TODO: print comparative csv
-    with open(output, mode="w") as outfile:
-        header = ",".join(str(k) for k in data.keys())
-        outfile.write(header + "\n")
-        export = ",".join(str(v) for v in data.values())
-        outfile.write(export + "\n")
+    if database.suffix != ".csv":
+        logger.error(f"{output} is not a database file [.csv].")
+    db = pd.read_csv(database)
+    df_data.loc["mean"] = db.mean()
+
+    if to_scaffold and to_lattice:
+        db_select = db[(db["scaffold"] == sequence)
+                       & (db["lattice"] == design.lattice)]
+        select = "_scaffold-lattice"
+    elif to_scaffold:
+        db_select = db[db["scaffold"] == sequence]
+        select = "_scaffold"
+    elif to_lattice:
+        db_select = db[db["lattice"] == design.lattice]
+        select = "_lattice"
+
+    if to_best:
+        db = db[db["quality"] > (1.-TOP_X) * db["quality"].max()]
+        db_select = db_select[db_select["quality"]
+                              > (1.-TOP_X) * db_select["quality"].max()]
+        top = f"_top{int(TOP_X*100)}%"
+    else:
+        top = ""
+
+    df_data.loc[f"mean{top}"] = db.mean()
+    df_data.loc[f"comp_{top}{select}"] = db_select.mean()
+
+    # TODO: print "prediction" for T and Mg
+    # TODO: print reduced selection to std?
+    df_data.to_csv(output, float_format='%.2f')
 
 
 @ cli.command()
@@ -299,6 +328,11 @@ def create_publication_db(db_folder, output, ):
             these folders contain cadnano design file and a short info file with scaffold, user, date, etc.
     """
     logger = logging.getLogger(__name__)
+    # NOTE: click will drop python2 support soon and actually return a Path
+    if isinstance(db_folder, str):
+        db_folder = Path(db_folder)
+    if isinstance(output, str):
+        output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
 
     exclude_count = 0
