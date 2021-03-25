@@ -59,6 +59,14 @@ class DesignStats(object):
         data.update(self.get_co_density())
         data["n_bluntends"] = self.get_n_blunt_ends()
 
+        # TODO: cleanup
+        n_full_sc_co = sum(data[f"full_scaf_co_type_{i}"] for i in range(1, 4))
+        for x in range(1, 4):
+            data[f'full_scaf_co_type_{x}_%'] = data[f"full_scaf_co_type_{x}"] / n_full_sc_co
+        sc_length = max(len(s.tour) for s in self.design.scaffolds)
+        data["rel_loops_length"] = [
+            loop/sc_length for loop in data["loops_length"]]
+
         self.data = data
 
     def prep_data_for_export(self) -> dict:
@@ -71,7 +79,7 @@ class DesignStats(object):
                             name, strand_name, typ)] = n_co
 
             elif name in ["staples_length", "helices_staples_pass", "n_staples_domains",
-                          "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length"]:
+                          "long_domains", "staple_domain_melt_T", "stacks_length", "loops_length", "rel_loops_length"]:
                 stats = get_statistics(value, name)
                 for stat_name, stat in stats.items():
                     export[stat_name] = stat
@@ -329,9 +337,6 @@ class DesignStats(object):
                 sc_id = list(co.bases)[0].across.strand
 
             sc = next((s for s in self.design.scaffolds if s.id == sc_id), None)
-            if sc is None:
-                import ipdb
-                ipdb.set_trace()
             sc_length = len(sc.tour)
 
             return diff if diff > (sc_length / 2) else (sc_length - diff)

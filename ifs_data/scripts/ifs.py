@@ -5,10 +5,8 @@ import os
 import click
 import logging
 import scipy.io as sio
-import pandas as pd
-import numpy as np
 
-from typing import IO
+from typing import IO, Any, Dict
 from datetime import date
 from pathlib import Path
 from shutil import copyfile
@@ -40,7 +38,7 @@ def export_data(data: dict, fdb_file: IO) -> None:
     fdb_file.write(export + "\n")
 
 
-def process_txt_file(txt_file: str) -> dict:
+def _process_txt_file(txt_file: str) -> dict:
     data = dict()
     with open(txt_file) as f:
         for line in f:
@@ -75,7 +73,7 @@ def process_txt_file_publication(txt_file: str) -> dict:
     return data
 
 
-def process_mat_file(mat_file: IO) -> dict:
+def process_mat_file(mat_file: IO, txt_file: str) -> dict:
 
     mat = sio.loadmat(mat_file, squeeze_me=True)
     try:
@@ -95,7 +93,7 @@ def process_mat_file(mat_file: IO) -> dict:
 
     sc_idx = 1 if bool(profile_data["has_ladder"]) else 0
     best_idx = int(fold_info["bestFoldingIndex"]) - 1  # matlab indexing!
-    data = dict()
+    data: Dict[str, Any] = dict()
 
     for prop in GEL_PROPERTIES + FOLD_PROPERTIES:
         info = gel_info if prop in GEL_PROPERTIES else fold_info
@@ -121,76 +119,54 @@ def process_mat_file(mat_file: IO) -> dict:
         else:
             prop_float = 0
         data.update({prop: prop_float})
+
+    # NOTE: TEM_verified and comment not in yet in .mat 2021.02.19
+    #    trying to retrieve from text file
+    txt_data = _process_txt_file(txt_file)
+    data.update(txt_data)
+
+    data["lattice"] = data["lattice_type"]
+    sc = data["scaffold_type"]
+    data["scaffold"] = sc
+    data["scaffold_length"] = scaffold_dict_len[sc]
+    data["scaffold_gc"] = scaffold_dict_gc[sc]
+    data["scaffold_name"] = scaffold_dict_name[sc]
+    data["scaffold_circ"] = scaffold_dict_circ[sc]
+
+    tem_verified = True if data["tem_verified"] == "yes" else False
+    if not tem_verified:
+        logger_str = data["tem_verified"]
+        logger.debug(f"Not tem_verified: {logger_str}")
+
+    data["yield"] = float(data["fractionMonomer"]) * tem_verified
+    data["purity"] = float(data["bandWidthNormalized"]) * tem_verified
+    data["quality"] = data["yield"] * data["purity"]
+
+    data["bestTs"] = T_screen[data["bestTscrn"]]
+    data["bestMs"] = Mg_screen[data["bestMgscrn"]]
+
+    if "temperature screen only over 3" in data["comment"]:
+        # TODO: check copy
+        data["bestTs"] = data["bestTs"][1:]
+        logger.debug("adapting bestTs for shortened T-screen")
+
+    data["bestTs_max"] = max(data["bestTs"])
+    data["bestTs_min"] = min(data["bestTs"])
+    data.pop("bestTs", None)
     return data
 
 
-# TODO: move to compute_data
-def complete_dataframe(f):
-
-    df = pd.read_csv(f)
-    df['date'] = pd.to_datetime(df['date'])
-    df['year'] = pd.to_datetime(df['date']).dt.year
-    df['month'] = pd.to_datetime(df['date']).dt.month
-
-    df["co_density_scaffold"] = df["co_set_scaffold_co"] / \
-        df["co_possible_scaffold_co"]
-
-    df["co_density_staple"] = df["co_set_staple_co"] / \
-        df["co_possible_staple_co"]
-    df["co_density"] = (df["co_set_staple_co"] + df["co_set_scaffold_co"]) / \
-        (df["co_possible_staple_co"]+df["co_possible_scaffold_co"])
-
-    dfall = (
-        df["full_scaf_co_type_1"] +
-        df["full_scaf_co_type_2"] +
-        df["full_scaf_co_type_3"]
-    )
-    for x in [1, 2, 3]:
-        df[f'full_scaf_co_type_{x}_%'] = df[f"full_scaf_co_type_{x}"] / dfall
-
-    df["tem_verified"].replace(np.nan, "no", inplace=True)
-    df["tem_verified"].replace(' ', "no", inplace=True)
-    df["tem_verified"].replace('tem_verified', "yes", inplace=True)
-    df["tem_verified"] = df["tem_verified"].astype('category')
-
-    df["scaffold"] = df["scaffold_type"]
-    df["lattice"] = df["lattice_type"]
-
-    df["scaffold_length"] = df["scaffold"].map(scaffold_dict_len)
-    df["scaffold_gc"] = df["scaffold"].map(scaffold_dict_gc)
-    df["scaffold_name"] = df["scaffold"].map(scaffold_dict_name)
-    df["scaffold_circ"] = df["scaffold"].map(scaffold_dict_circ)
-    df["rel_avg_loops_length"] = df["avg_loops_length"] / df["scaffold_length"]
-
-    df["yield"] = df["fractionMonomer"] * \
-        df["tem_verified"].map(dict(yes=1, no=0)).astype(int)
-    df["purity"] = df["bandWidthNormalized"] * \
-        df["tem_verified"].map(dict(yes=1, no=0)).astype(int)
-    df["quality"] = df["yield"] * df["purity"]
-
-    df["bestTs"] = df["bestTscrn"].map(T_screen)
-    df["bestMs"] = df["bestMgscrn"].map(Mg_screen)
-
-    df.loc[df["comment"].str.contains(
-        "temperature screen only over 3", na=False), 'bestTs'] = df.loc[df["comment"].str.contains(
-            "temperature screen only over 3", na=False), 'bestTs'].apply(lambda x: x[1:])
-
-    df["bestTs_max"] = df["bestTs"].apply(lambda x: max(x))
-    df["bestTs_min"] = df["bestTs"].apply(lambda x: min(x))
-    return df
-
-
-@click.group()
-@click.option('--version', is_flag=True, callback=print_version,
-              expose_value=False, is_eager=True)
+@ click.group()
+@ click.option('--version', is_flag=True, callback=print_version,
+               expose_value=False, is_eager=True)
 def cli():
     pass
 
 
-@cli.command()
-@click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
-@click.option("-o", "--output",  type=click.Path(), default=Path("./__database"), help="output folder")
-@click.option("-d", "--datafile",  default="fdb", help="database-file name")
+@ cli.command()
+@ click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
+@ click.option("-o", "--output",  type=click.Path(), default=Path("./__database"), help="output folder")
+@ click.option("-d", "--datafile",  default="fdb", help="database-file name")
 def create_database(db_folder, output, datafile):
     """ processes database design files. matlabscript on IFS has to be run first.
         creates database.csv in specified folder
@@ -223,16 +199,10 @@ def create_database(db_folder, output, datafile):
             with get_file(logger, child, "*.txt", IndexError):
                 txt = list(child.glob("*.txt")).pop()
 
-            mat_data = process_mat_file(mat)
-
-            # NOTE: TEM_verified and comment not in yet in .mat 2021.02.19
-            #    trying to retrieve from text file
-            txt_data = process_txt_file(txt)
-            mat_data.update(txt_data)
+            mat_data = process_mat_file(mat, txt)
 
             design_name = mat_data["design_name"]
             design_seq = mat_data["scaffold_type"].upper()
-
             designdata = Design(
                 json=json, name=design_name, seq=design_seq, circ_scaffold=True)
 
@@ -241,19 +211,14 @@ def create_database(db_folder, output, datafile):
 
             json_data = compute.prep_data_for_export()
             data = {**mat_data, **json_data}
-
             export_data(data=data, fdb_file=fdb_file)
-
     logger.debug(f"{exclude_count} folders skiped")
 
-    df = complete_dataframe(fdb_filepath)
-    df.to_csv(fdb_filepath)
 
-
-@cli.command()
-@click.argument('json', type=click.Path(exists=True))
-@click.argument('sequence', type=str)
-@click.option("-d", "--datafile",  default="fdb", help="database-file name")
+@ cli.command()
+@ click.argument('json', type=click.Path(exists=True))
+@ click.argument('sequence', type=str)
+@ click.option("-d", "--datafile",  default="fdb", help="database-file name")
 def analyse_design(json, sequence, datafile):
     """ analyse a single design file and link it to the ifs data as a csv
 
@@ -278,17 +243,17 @@ def analyse_design(json, sequence, datafile):
         outfile.write(export + "\n")
 
 
-@cli.command()
-@click.argument('json', type=click.Path(exists=True))
-@click.argument('sequence', type=str)
-@click.argument('database', type=click.Path(exists=True))
-@click.option("-o", "--output",  type=click.Path(), default=None, help="output file name")
-@click.option('--to-best', is_flag=True,
-              help='compare to best designs')
-@click.option('--to-same-scaffold', is_flag=True,
-              help='compare to same scaffold')
-@click.option('--to-same-lattice', is_flag=True,
-              help='compare to same lattice')
+@ cli.command()
+@ click.argument('json', type=click.Path(exists=True))
+@ click.argument('sequence', type=str)
+@ click.argument('database', type=click.Path(exists=True))
+@ click.option("-o", "--output",  type=click.Path(), default=None, help="output file name")
+@ click.option('--to-best', is_flag=True,
+               help='compare to best designs')
+@ click.option('--to-same-scaffold', is_flag=True,
+               help='compare to same scaffold')
+@ click.option('--to-same-lattice', is_flag=True,
+               help='compare to same lattice')
 def compare_design(json, sequence, database, output, to_best, to_same_scaffold, to_same_lattice):
     """ analyse a single design file and compare it to an existing database
 
@@ -325,9 +290,9 @@ def compare_design(json, sequence, database, output, to_best, to_same_scaffold, 
         outfile.write(export + "\n")
 
 
-@cli.command()
-@click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
-@click.option("-o", "--output",  type=click.Path(), default=Path("./__publications"), help="output folder")
+@ cli.command()
+@ click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
+@ click.option("-o", "--output",  type=click.Path(), default=Path("./__publications"), help="output folder")
 def create_publication_db(db_folder, output, ):
     """ parse all folders in the database and extract publication data.
         creates a new folder "__publications" wich contains a folder for each publication:
