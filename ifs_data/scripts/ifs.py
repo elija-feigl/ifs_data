@@ -136,12 +136,11 @@ def process_mat_file(mat_file: Path, txt_file: Path) -> dict:
     data.update(txt_data)
 
     data["lattice"] = data["lattice_type"]
-    sc = data["scaffold_type"]
-    data["scaffold"] = sc
-    data["scaffold_length"] = scaffold_dict_len[sc]
-    data["scaffold_gc"] = scaffold_dict_gc[sc]
-    data["scaffold_name"] = scaffold_dict_name[sc]
-    data["scaffold_circ"] = scaffold_dict_circ[sc]
+    data["scaffold"] = data["scaffold_type"]
+    data["scaffold_name"] = scaffold_dict_name[data["scaffold"]]
+    data["scaffold_length"] = scaffold_dict_len[data["scaffold_name"]]
+    data["scaffold_gc"] = scaffold_dict_gc[data["scaffold_name"]]
+    data["scaffold_circ"] = scaffold_dict_circ[data["scaffold_name"]]
 
     tem_verified = True if data["tem_verified"] == "yes" else False
     if not tem_verified:
@@ -354,11 +353,8 @@ def create_publication_db(db_folder, output, ):
             continue
 
         logger.info(child.name)
-        with get_file(logger, child, "*.json", IndexError):
-            json = list(child.glob("*.json")).pop()
-        with get_file(logger, child, "*.txt", IndexError):
-            txt = list(child.glob("*.txt")).pop()
-
+        json = get_file(logger, child, "*json")
+        txt = get_file(logger, child, "*txt")
         txt_data = process_txt_file_publication(txt)
         publication = txt_data["published"]
 

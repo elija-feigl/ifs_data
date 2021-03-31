@@ -15,22 +15,22 @@ GEL_PROPERTIES = ["user", "project", "design_name", "date", "tem_verified",
 FOLD_PROPERTIES = ["qualityMetric", "bestTscrn", "bestMgscrn", "qualityMetric",
                    "fractionMonomer", "bandWidthNormalized", "migrationDistanceNormalized",
                    "fractionPocket", "fractionSmear"]
-scaffold_dict_len = {"8064": 8064, "7560": 7560, "CS11": 7560, "CS16": 7560,
-                     "CS15": 7560, "2873": 2873, "1317": 1317, "2048": 2057,
-                     "7249": 7249, "9072": 9072, "CS12": 7560,
-                     "7704": 7704, "CS17": 8039, "CS13": 7560, "4536": 4536}
 scaffold_dict_name = {"8064": "8064", "7560": "7560", "CS11": "CS11", "CS16": "CS16",
                       "CS15": "CS15", "2873": "CS3_XS", "1317": "RFP", "2048": "Pippin",
-                      "7249": "7249", "9072": "CS3_XL", "CS12": "CS12",
+                      "7249": "7249", "9072": "CS3_XL", "CS12": "CS12", "CS10": "Sam", "1033": "Sam",
                       "7704": "7704", "CS17": "CS17", "CS13": "CS13", "4536": "CS3_S"}
+scaffold_dict_len = {"8064": 8064, "7560": 7560, "CS11": 7560, "CS16": 7560,
+                     "CS15": 7560, "CS3_XS": 2873, "RFP": 1317, "Pippin": 2057,
+                     "7249": 7249, "CS3_XL": 9072, "CS12": 7560, "Sam": 1024,
+                     "7704": 7704, "CS17": 8039, "CS13": 7560, "CS3_S": 4536}
 scaffold_dict_circ = {"8064": True, "7560": True, "CS11": True, "CS16": False,
-                      "CS15": False, "2873": True, "1317": True, "2048": True,
-                      "7249": True, "9072": True, "CS12": False,
-                      "7704": True, "CS17": False, "CS13": False, "4536": True}
+                      "CS15": False, "CS3_XS": True, "RFP": True, "Pippin": True,
+                      "7249": True, "CS3_XL": True, "CS12": False, "Sam": True,
+                      "7704": True, "CS17": False, "CS13": False, "CS3_S": True}
 scaffold_dict_gc = {"8064": 0.44, "7560": 0.42, "CS11": 0.435, "CS16": 0.6,
-                    "CS15": 0.58, "2873": 0.5, "1317": 0.51, "2048": 0.51,
-                    "7249": 0.42, "9072": 0.49, "CS12": 0.3,
-                    "7704": 0.427, "CS17": 0.448, "CS13": 0.34, "4536": 0.49}
+                    "CS15": 0.58, "CS3_XS": 0.5, "RFP": 0.51, "Pippin": 0.51,
+                    "7249": 0.42, "CS3_XL": 0.49, "CS12": 0.3, "Sam": 0.51,
+                    "7704": 0.427, "CS17": 0.448, "CS13": 0.34, "CS3_S": 0.49}
 T_screen = {f"T{x}": list(range(47 + 2 * (x-1), 51 + 2 * (x-1)))
             for x in range(1, 9)}
 Mg_screen = {f"M{x}": x for x in range(5, 35, 5)}
