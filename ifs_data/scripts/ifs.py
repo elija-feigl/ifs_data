@@ -57,8 +57,7 @@ def _process_txt_file(txt_file: Path) -> dict:
 
 
 def process_txt_file_publication(txt_file: Path) -> dict:
-    props = ["tem_verified", "scaffold_type", "published", "lattice_type",
-             "date", "user", "design_name", "project"]
+    props = ["published", "date", "user", "design_name", "project"]
     data = dict()
     with txt_file.open() as f:
         for line in f:
@@ -204,10 +203,15 @@ def create_database(db_folder, output, datafile):
                 exclude_count += 1
                 continue
 
-            logger.info(child.name)
-            json = get_file(logger, child, "*json")
-            mat = get_file(logger, child, "*mat")
-            txt = get_file(logger, child, "*txt")
+            try:
+                json = get_file(logger, child, "*json")
+                mat = get_file(logger, child, "*mat")
+                txt = get_file(logger, child, "*txt")
+            except IOError:
+                logger.error(f"Folder {child.name} incomplete.")
+                continue
+
+            logger.info(f"Folder {child.name}")
             mat_data = process_mat_file(mat, txt)
 
             design_name = mat_data["design_name"]
@@ -221,7 +225,7 @@ def create_database(db_folder, output, datafile):
             json_data = compute.prep_data_for_export()
             data = {**mat_data, **json_data}
             export_data(data=data, fdb_file=fdb_file)
-    logger.debug(f"{exclude_count} folders skiped")
+    logger.debug(f"{exclude_count} folders skiped.")
 
 
 @ cli.command()
@@ -352,9 +356,14 @@ def create_publication_db(db_folder, output, ):
             exclude_count += 1
             continue
 
-        logger.info(child.name)
-        json = get_file(logger, child, "*json")
-        txt = get_file(logger, child, "*txt")
+        try:
+            json = get_file(logger, child, "*json")
+            txt = get_file(logger, child, "*txt")
+        except IOError:
+            logger.error(f"Folder {child.name} incomplete.")
+            continue
+        logger.info(f"Folder {child.name}")
+
         txt_data = process_txt_file_publication(txt)
         publication = txt_data["published"]
 
@@ -380,4 +389,4 @@ def create_publication_db(db_folder, output, ):
 
 if __name__ == "__main__":
     _init_logging()
-    create_database()
+    create_database(Path("."), Path("./__publications"), "fdb")

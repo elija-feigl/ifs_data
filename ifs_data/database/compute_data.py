@@ -254,9 +254,8 @@ class DesignStats(object):
                         if is_valid:
                             positions.add(p)
 
-                    n_end, n_co = count_co(sorted(list(positions)))
-
                     # NOTE: 2021-03-19: ends will be excluded from co density estimates
+                    _, n_co = count_co(sorted(list(positions)))
                     n_connections = n_co  # + n_end
                     possible_connections[strand_type]["co"] += n_connections
                     possible_connections[strand_type][f"co_{orient}"] += n_connections
