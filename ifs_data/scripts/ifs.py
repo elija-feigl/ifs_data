@@ -91,11 +91,17 @@ def process_mat_file(mat_file: Path, txt_file: Path) -> dict:
         raise
 
     try:
-        profile_data = mat["profileData"]
+        # legacy version
+        has_ladder = mat["profileData"]["has_ladder"]
+        sc_idx = 1 if bool(has_ladder) else 0
     except KeyError:
-        raise
+        # new version
+        try:
+            sc_idx = gel_info["species"].item()["scaffold"].item()[
+                "indices"].item()[0] - 1
+        except KeyError:
+            raise
 
-    sc_idx = 1 if bool(profile_data["has_ladder"]) else 0
     best_idx = int(fold_info["bestFoldingIndex"]) - 1  # matlab indexing!
     data: Dict[str, Any] = dict()
 
@@ -136,10 +142,15 @@ def process_mat_file(mat_file: Path, txt_file: Path) -> dict:
 
     data["lattice"] = data["lattice_type"]
     data["scaffold"] = data["scaffold_type"]
-    data["scaffold_name"] = scaffold_dict_name[data["scaffold"]]
-    data["scaffold_length"] = scaffold_dict_len[data["scaffold_name"]]
-    data["scaffold_gc"] = scaffold_dict_gc[data["scaffold_name"]]
-    data["scaffold_circ"] = scaffold_dict_circ[data["scaffold_name"]]
+    try:
+        data["scaffold_name"] = scaffold_dict_name[data["scaffold"]]
+        data["scaffold_length"] = scaffold_dict_len[data["scaffold_name"]]
+        data["scaffold_gc"] = scaffold_dict_gc[data["scaffold_name"]]
+        data["scaffold_circ"] = scaffold_dict_circ[data["scaffold_name"]]
+    except KeyError:
+        d_sc = data["scaffold"]
+        logger.error(f"Scaffold type unknown {d_sc}")
+        raise
 
     tem_verified = True if data["tem_verified"] == "yes" else False
     if not tem_verified:
@@ -211,8 +222,13 @@ def create_database(db_folder, output, datafile):
                 logger.error(f"Folder {child.name} incomplete.")
                 continue
 
+            try:
+                mat_data = process_mat_file(mat, txt)
+            except KeyError:
+                logger.error(
+                    f"Folder {child.name} has incompatible .mat file.")
+                continue
             logger.info(f"Folder {child.name}")
-            mat_data = process_mat_file(mat, txt)
 
             design_name = mat_data["design_name"]
             design_seq = mat_data["scaffold_type"].upper()

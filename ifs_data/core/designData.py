@@ -8,7 +8,7 @@ import networkx as nx
 import numpy as np
 from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp
-from nanodesign.converters import Converter
+from nanodesign.converters.converter import Converter
 from nanodesign.data.base import DnaBase as Base
 from nanodesign.data.dna_structure import DnaStructure as Structure
 from nanodesign.data.strand import DnaStrand as Strand
