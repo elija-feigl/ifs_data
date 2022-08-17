@@ -1,31 +1,42 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Python-version:](https://img.shields.io/badge/python-v3.8-green)]() | [Usage](#usage) | [Dependencies](#dependencies) | [Installation](#installation)
+
+
 # ifs_data: dietzlab initial folding screen database
 
 A Python3 package that contains a collection of scripts related to the analysis of initial folding screens of DNA-Origami structures.
 
 
 # Usage
-...
+```
+Usage: ifs [OPTIONS] COMMAND [ARGS]...
 
-# Dependencies
+Options:
+  --version
+  --help     Show this message and exit.
 
-* Python >= 3.7
-  * numpy >= 1.14
-  * scipy >= 1.1
-  * attrs >= ??
-  * nanodesign3  >= ?? # not publised yet
+Commands:
+  analyze-design         analyze a single design file with output as a csv
+  compare-design         analyze a single design file and compare it to...
+  create-database        combine stats from from database design files &...
+  create-publication-db  parse all folders in the database and extract...
+```
+
+## Dependencies
+
+* see setup.cfg
 
 
-# Installation
 
-install all required Python Packages. the following are not available via the PyPI
-## nanodesign3
-https://github.com/elija-feigl/nanodesign_dietz
-
-
-git clone https://github.com/elija-feigl/ifs_data
-cd ifs_data
-python setup.py install
-cd ..
+## Installation
+  ```
+    pip install git+https://github.com/elija-feigl/ifs_data#egg=ifs_data
+  ```
+or
+  ```
+    git clone https://github.com/elija-feigl/ifs_data
+    cd ifs_data
+    pip install .
+  ```
 
 
 # Citation
@@ -35,7 +46,7 @@ When using ifs_data Python Package in published work, please cite the following 
 ...
 
 
-# documentation of design_statistics
+# documentation of design_statistics csv header
 
 "name": name of the structure.
 
