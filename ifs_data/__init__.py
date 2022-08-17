@@ -24,7 +24,7 @@ def _init_logging():
 
 _init_logging()
 
-version_info = [0, 6, 1, "seq-brach", 0]
+version_info = [0, 6, 1, "seq-brach0"]
 
 __version__ = ".".join([str(sub) for sub in version_info])
 __all__ = ["__version__"]
