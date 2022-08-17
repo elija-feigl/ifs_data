@@ -1,21 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
-
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 import pandas as pd
 import argparse
 from pathlib import Path
@@ -23,22 +8,22 @@ from pathlib import Path
 from ..core.designData import DesignData
 
 
-def staple_dataframe(designdata):
+def staple_dataframe(design_data):
     data = {
         'ID': [], 'length': [], 'n_helices': [], 'helices': [], "n_domains": [], "domain_lengths": [],
         "domain_melt_t": [], "n_long_domains": [], 'position_5prime': []
     }
-    for staple in designdata.staples:
+    for staple in design_data.staples:
         data['ID'].append(staple.id)
         data['length'].append(len(staple.tour))
         data['n_helices'].append(
-            len(designdata.staple_helix_dict[staple]))
+            len(design_data.staple_helix_dict[staple]))
         data['helices'].append(
-            list(designdata.staple_helix_dict[staple]))
-        data["n_domains"].append(len(designdata.domain_data[staple]))
-        data['domain_lengths'].append(designdata.domain_lengths_data[staple])
-        data["domain_melt_t"].append(designdata.staple_domains_melt_t[staple])
-        data['n_long_domains'].append(designdata.long_domains[staple])
+            list(design_data.staple_helix_dict[staple]))
+        data["n_domains"].append(len(design_data.domain_data[staple]))
+        data['domain_lengths'].append(design_data.domain_lengths_data[staple])
+        data["domain_melt_t"].append(design_data.staple_domains_melt_t[staple])
+        data['n_long_domains'].append(design_data.long_domains[staple])
         first = (staple.tour[0].h, staple.tour[0].p)
         data['position_5prime'].append(first)
 
@@ -57,8 +42,8 @@ def main():
                         )
     args = parser.parse_args()
     json = Path(args.input)
-    designdata = DesignData(json=json, name=json.name, seq='8064')
-    staple_dataframe(designdata)
+    design_data = DesignData(json=json, name=json.name, seq='8064')
+    staple_dataframe(design_data)
 
 
 if __name__ == "__main__":

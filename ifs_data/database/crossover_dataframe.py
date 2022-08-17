@@ -1,21 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
-
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 import pandas as pd
 import argparse
 from pathlib import Path
@@ -23,12 +8,12 @@ from pathlib import Path
 from ..core.designData import Design
 
 
-def crossover_dataframe(designdata: Design):
+def crossover_dataframe(design_data: Design):
     data: dict = {
         'type': [], 'strand_type': [], 'helices': [],
         'orientation': [], 'positions': [], 'Cadnano_type(integers)': []
     }
-    for co in designdata.crossovers:
+    for co in design_data.crossovers:
         bases = co.bases
         data['type'].append(co.typ)
         data['strand_type'].append(co.is_scaffold)
@@ -52,9 +37,9 @@ def main():
                         )
     args = parser.parse_args()
     json = Path(args.input)
-    designdata = Design(json=json, name=json.name,
+    design_data = Design(json=json, name=json.name,
                         seq='8064', circ_scaffold=False)
-    crossover_dataframe(designdata)
+    crossover_dataframe(design_data)
 
 
 if __name__ == "__main__":

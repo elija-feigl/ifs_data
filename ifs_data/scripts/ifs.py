@@ -1,21 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
-
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 import os
 import click
 import logging
@@ -28,7 +13,7 @@ from pathlib import Path
 from shutil import copyfile
 
 from ifs_data import _init_logging
-from ifs_data.version import get_version
+from ifs_data import get_version
 from ifs_data.core.utils import (get_file, GEL_PROPERTIES, FOLD_PROPERTIES,
                                  scaffold_dict_len, scaffold_dict_name, scaffold_dict_circ,
                                  scaffold_dict_gc, T_screen, Mg_screen, _str)
@@ -39,7 +24,7 @@ TOP_X = 0.2
 logger = logging.getLogger(__name__)
 
 
-def print_version(ctx, param, value):
+def print_version(ctx, _, value):
     if not value or ctx.resilient_parsing:
         return
     click.echo(get_version())
@@ -198,19 +183,14 @@ def cli():
 
 
 @ cli.command()
-@ click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
-@ click.option("-o", "--output",  type=click.Path(), default=Path("./__database"), help="output folder")
+@ click.option("-i", "--db_folder", default=Path("."), help="input folder", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@ click.option("-o", "--output",  default=Path("./__database"), help="output folder", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @ click.option("-d", "--datafile",  default="fdb", help="database-file name")
 def create_database(db_folder, output, datafile):
     """ combine stats from from database design files & IFS_matlab data.
             creates .csv in specified folder
     """
     logger = logging.getLogger(__name__)
-    # NOTE: click will drop python2 support soon and actually return a Path
-    if isinstance(db_folder, str):
-        db_folder = Path(db_folder)
-    if isinstance(output, str):
-        output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
 
     date_str = str(date.today().strftime("%y-%b-%d"))
@@ -247,33 +227,30 @@ def create_database(db_folder, output, datafile):
 
             design_name = mat_data["design_name"]
             design_seq = mat_data["scaffold_type"].upper()
-            designdata = Design(
+            design_data = Design(
                 json=json, name=design_name, seq=design_seq, circ_scaffold=True)
 
-            compute = DesignStats(design=designdata)
+            compute = DesignStats(design=design_data)
             compute.compute_data()
 
             json_data = compute.prep_data_for_export()
             data = {**mat_data, **json_data}
             export_data(data=data, fdb_file=fdb_file)
-    logger.debug(f"{exclude_count} folders skiped.")
+    logger.debug(f"{exclude_count} folders skipped.")
 
 
 @ cli.command()
-@ click.argument('json', type=click.Path(exists=True))
+@ click.argument('json', type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @ click.argument('sequence', type=str)
 @ click.option("-d", "--datafile",  default="fdb", help="database-file name")
-def analyse_design(json, sequence, datafile):
-    """ analyse a single design file with output as a csv
+def analyze_design(json, sequence, datafile):
+    """ analyze a single design file with output as a csv
 
         JSON is the name of the cadnano design file [.json]\n
         SEQUENCE is the name of scaffold strand\n
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    json = Path(json)
-
     logger = logging.getLogger(__name__)
-    outname = f"{json.stem}-stat.csv"
+    out_name = f"{json.stem}-stat.csv"
     design = Design(json=json, name=json.stem,
                     seq=sequence, circ_scaffold=True)
     logger.debug(f"Successfully read design {json}")
@@ -282,7 +259,7 @@ def analyse_design(json, sequence, datafile):
     compute.compute_data()
     data = compute.prep_data_for_export()
 
-    with open(outname, mode="w") as outfile:
+    with open(out_name, mode="w") as outfile:
         header = ",".join(str(k) for k in data.keys())
         outfile.write(header + "\n")
         export = ",".join(_str(v) for v in data.values())
@@ -290,10 +267,10 @@ def analyse_design(json, sequence, datafile):
 
 
 @ cli.command()
-@ click.argument('json', type=click.Path(exists=True))
+@ click.argument('json',  type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @ click.argument('sequence', type=str)
-@ click.argument('database', type=click.Path(exists=True))
-@ click.option("-o", "--output",  type=click.Path(), default=None, help="output file name")
+@ click.argument('database', type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@ click.option("-o", "--output",  default=None, help="output file name", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @ click.option('--to-best', is_flag=True,
                help='compare to best designs')
 @ click.option('--to-scaffold', is_flag=True,
@@ -301,16 +278,14 @@ def analyse_design(json, sequence, datafile):
 @ click.option('--to-lattice', is_flag=True,
                help='compare to same lattice')
 def compare_design(json, sequence, database, output, to_best, to_scaffold, to_lattice):
-    """ analyse a single design file and compare it to an existing database
+    """ analyze a single design file and compare it to an existing database
 
         JSON is the cadnano design file [.json]\n
         SEQUENCE is the name of scaffold strand\n
         DATABASE is the database file [.csv]\n
     """
     logger = logging.getLogger(__name__)
-    # NOTE: click will drop python2 support soon and actually return a Path
-    json = Path(json)
-    database = Path(database)
+
     if output is None:
         output = Path(f"{json.stem}-comparison.csv")
     else:
@@ -358,19 +333,14 @@ def compare_design(json, sequence, database, output, to_best, to_scaffold, to_la
 
 
 @ cli.command()
-@ click.option("-i", "--db_folder",  type=click.Path(exists=True), default=Path("."), help="input folder")
-@ click.option("-o", "--output",  type=click.Path(), default=Path("./__publications"), help="output folder")
-def create_publication_db(db_folder, output, ):
+@ click.option("-i", "--db_folder",  default=Path("."), help="input folder", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@ click.option("-o", "--output", default=Path("./__publications"), help="output folder", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+def create_publication_db(db_folder, output):
     """ parse all folders in the database and extract publication data.
-        creates a new folder "__publications" wich contains a folder for each publication:
+        creates a new folder "__publications" which contains a folder for each publication:
             these folders contain cadnano design file and a short info file with scaffold, user, date, etc.
     """
     logger = logging.getLogger(__name__)
-    # NOTE: click will drop python2 support soon and actually return a Path
-    if isinstance(db_folder, str):
-        db_folder = Path(db_folder)
-    if isinstance(output, str):
-        output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
 
     exclude_count = 0
@@ -414,7 +384,7 @@ def create_publication_db(db_folder, output, ):
         else:
             unpublished_count += 1
 
-    logger.debug(f"{exclude_count} folders skiped")
+    logger.debug(f"{exclude_count} folders skipped")
     logger.info(f"{unpublished_count} unpublished designs ")
 
 

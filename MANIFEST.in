@@ -1,4 +1,7 @@
-include ifs_data/README.md
-include ifs_data/CONTRIBUTIONS.md
-include ifs_data/LICENSE
+include README.md
+include CONTRIBUTIONS.md
+include LICENSE
+include setup.cfg
+include pyproject.toml
+include MANIFEST.in
 recursive-include ifs_data/resources *
