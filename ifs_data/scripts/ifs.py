@@ -141,16 +141,6 @@ def process_mat_file(mat_file: Path, txt_file: Path) -> dict:
     data.update(txt_data)
 
     data["lattice"] = data["lattice_type"]
-    data["scaffold"] = data["scaffold_type"]
-    try:
-        data["scaffold_name"] = scaffold_dict_name[data["scaffold"]]
-        data["scaffold_length"] = scaffold_dict_len[data["scaffold_name"]]
-        data["scaffold_gc"] = scaffold_dict_gc[data["scaffold_name"]]
-        data["scaffold_circ"] = scaffold_dict_circ[data["scaffold_name"]]
-    except KeyError:
-        d_sc = data["scaffold"]
-        logger.error(f"Scaffold type unknown {d_sc}")
-        raise
 
     tem_verified = True if data["tem_verified"] == "yes" else False
     if not tem_verified:
@@ -188,7 +178,8 @@ def cli():
 @ click.option("-d", "--datafile",  default="fdb", help="database-file name")
 def create_database(db_folder, output, datafile):
     """ combine stats from from database design files & IFS_matlab data.
-            creates .csv in specified folder
+            parses all folders in input folder 'db_folder'
+            creates .csv in specified output folder 'output'
     """
     logger = logging.getLogger(__name__)
     output.mkdir(parents=True, exist_ok=True)
@@ -213,6 +204,8 @@ def create_database(db_folder, output, datafile):
                 json = get_file(logger, child, "*json")
                 mat = get_file(logger, child, "*mat")
                 txt = get_file(logger, child, "*txt")
+                seq = get_file(logger, child, "*seq")
+                
             except IOError:
                 logger.error(f"Folder {child.name} incomplete.")
                 continue
@@ -225,10 +218,17 @@ def create_database(db_folder, output, datafile):
                 continue
             logger.info(f"Folder {child.name}")
 
+            mat_data["scaffold"] = seq.name
+            mat_data["scaffold_name"] = seq.name
+            mat_data["scaffold_type"] = seq.name
+            with seq.open() as f:
+                scaffold_sequence = f.read().upper()
+            mat_data["scaffold_length"] = len(scaffold_sequence)
+            mat_data["scaffold_gc"] = sum(1 for letter in scaffold_sequence if letter in "GC")/len(scaffold_sequence)
+
             design_name = mat_data["design_name"]
-            design_seq = mat_data["scaffold_type"].upper()
             design_data = Design(
-                json=json, name=design_name, seq=design_seq, circ_scaffold=True)
+                json=json, name=design_name, seq=seq, circ_scaffold=True)
 
             compute = DesignStats(design=design_data)
             compute.compute_data()

@@ -15,7 +15,7 @@ def get_resource(resources: str) -> Path:
 
 def _init_logging():
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(asctime)s | [%(name)s] %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
@@ -24,7 +24,7 @@ def _init_logging():
 
 _init_logging()
 
-version_info = [0, 6, 1, "dev"]
+version_info = [0, 6, 1, "seq-brach", 0]
 
 __version__ = ".".join([str(sub) for sub in version_info])
 __all__ = ["__version__"]

@@ -4,6 +4,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 import nanodesign as nd
@@ -24,9 +25,9 @@ from .utils import (_change_strand_type, _check_base_crossover, _close_strand,
 
 @dataclass
 class Design(object):
-    json: str
+    json: Path
     name: str
-    seq: str
+    seq: Path
     circ_scaffold: bool = True
 
     def __post_init__(self):
@@ -42,17 +43,17 @@ class Design(object):
         self._init_connectivity()
 
     ###########################################################################
-    # initialisation
+    # initialization
     def _init_design(self) -> Structure:
         """ convert into nanodesign structure"""
         converter = Converter()
         converter.modify = True
-        converter.read_cadnano_file(self.json, None, self.seq)
+        converter.read_cadnano_file(file_name=str(self.json), seq_file_name=str(self.seq), seq_name=None)
         converter.dna_structure.compute_aux_data()
         return converter.dna_structure
 
     def _init_configuration(self) -> None:
-        """ retrive Origami specific information"""
+        """ retrieve Origami specific information"""
         self.strands = self.dna_structure.strands
         self._fix_strand_classification()
         self.scaffolds = self._create_scaffolds()
@@ -68,14 +69,14 @@ class Design(object):
         self.nicks = self._create_nicks()
 
     def _init_domains(self) -> None:
-        """ everything related to domains (distribution & metling T)"""
+        """ everything related to domains (distribution & melting T)"""
         self.domain_data = self._create_domain_data()
         self.max_staple_melt_t = self._create_staple_max_melt_T()
 
     def _init_connectivity(self) -> None:
         """ crossover data
                 full crossovers are composed of two connections
-                half crossovers and endloops of one connection
+                half crossovers and end-loops of one connection
             stacks
         """
         self.crossovers = self._create_crossovers()
@@ -84,7 +85,7 @@ class Design(object):
     ###########################################################################
     # attribute creators
     def _fix_strand_classification(self, scaffold_min_length: int = 500) -> None:
-        """scaffolds-strands smaller than scaffold_min_length bases are to be consedered as staples."""
+        """scaffolds-strands smaller than scaffold_min_length bases are to be considered as staples."""
         for strand in self.strands:
             base = strand.tour[0]
             is_false_scaf = (strand.is_scaffold and len(
@@ -109,7 +110,7 @@ class Design(object):
         return scaffolds
 
     def _create_staples(self) -> List[Strand]:
-        """ NOTE: call afer _create_scaffolds to catch converted strands"""
+        """ NOTE: call after _create_scaffolds to catch converted strands"""
         return [strand for strand in self.strands if not strand.is_scaffold]
 
     def _create_hps(self) -> Dict[Tuple[int, int, bool], Base]:
@@ -121,7 +122,7 @@ class Design(object):
         # TODO: implement without reusing converter
         converter = Converter()
         converter.modify = False
-        converter.read_cadnano_file(self.json, None, self.seq)
+        converter.read_cadnano_file(file_name=str(self.json), seq_file_name=str(self.seq), seq_name=None)
         converter.dna_structure.compute_aux_data()
         dna_structure_del_ins = converter.dna_structure
 
@@ -160,7 +161,7 @@ class Design(object):
         return {staple: staple.domain_list for staple in self.staples}
 
     def _create_staple_max_melt_T(self) -> Dict[Strand, float]:
-        """ max_melt_T is the staple domain with the highest metling temperature"""
+        """ max_melt_T is the staple domain with the highest melting temperature"""
         staple_domains_melt_t: Dict[Strand, List[float]] = dict()
         for staple in self.staples:
             domains = staple.domain_list
@@ -179,7 +180,7 @@ class Design(object):
         return max_staple_melt_t
 
     def _create_all_connections(self) -> Set[Connection]:
-        """get a set of all interhelical connection of two bases."""
+        """get a set of all inter-helical connection of two bases."""
         all_con = set()
         passed_bases = set()
         for strand in self.strands:
@@ -195,7 +196,7 @@ class Design(object):
 
     def _create_crossovers(self) -> List[Crossover]:
         """ organize connections into crossover objects with full syntax and typ annotation
-            NOTE: nanodesign crossover is auqivalent to connection
+            NOTE: nanodesign crossover is equivalent to connection
             """
         def find_second_connections(base: Base) -> Optional[Connection]:
             """ check for possible 2nd connection for full crossover."""
@@ -288,7 +289,7 @@ class Design(object):
         return self.hps_base.get((h, p, s), None)
 
     def _get_base_plus_minus(self, base: Base) -> Tuple[Base, Base]:
-        """ given a base, it returns the neighbour bases."""
+        """ given a base, it returns the neighbor bases."""
         base_plus = self._get_neighbor_from_hps(
             base.h, base.p + 1, base.is_scaf)
         base_minus = self._get_neighbor_from_hps(
